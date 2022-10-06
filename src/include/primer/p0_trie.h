@@ -277,9 +277,7 @@ class Trie {
    * @brief Construct a new Trie object. Initialize the root node with '\0'
    * character.
    */
-  Trie()  {
-    root_ = std::make_unique<TrieNode>('\0');
-  }
+  Trie() { root_ = std::make_unique<TrieNode>('\0'); }
 
   /**
    * TODO(P0): Add implementation
@@ -324,10 +322,11 @@ class Trie {
     char key_char = node->get()->GetKeyChar();
     if (parent == nullptr) {
       root_->RemoveChildNode(key_char);
-      root_->InsertChildNode(key_char, std::make_unique<TrieNodeWithValue<T>>(std::move(node_with_value),value));
+      root_->InsertChildNode(key_char, std::make_unique<TrieNodeWithValue<T>>(std::move(node_with_value), value));
     } else {
       parent->get()->RemoveChildNode(key_char);
-      parent->get()->InsertChildNode(key_char, std::make_unique<TrieNodeWithValue<T>>(std::move(node_with_value),value));
+      parent->get()->InsertChildNode(key_char,
+                                     std::make_unique<TrieNodeWithValue<T>>(std::move(node_with_value), value));
     }
     latch_.WUnlock();
     return true;
@@ -371,7 +370,7 @@ class Trie {
       cur_node = cur_node->get()->GetChildNode(key[i]);
     }
     int str_index = key.length() - 1;
-    for (int i = str_index-1; i >= 0; --i) {
+    for (int i = str_index - 1; i >= 0; --i) {
       auto ptr = path_vec[i];
       if (!ptr->get()->GetChildNode(key[i])->get()->HasChildren()) {
         ptr->get()->RemoveChildNode(key[i]);
