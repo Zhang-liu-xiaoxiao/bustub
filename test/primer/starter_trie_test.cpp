@@ -160,6 +160,41 @@ TEST(StarterTrieTest, RemoveTest) {
     success = trie.Remove("aaa");
     EXPECT_EQ(success, true);
   }
+  {
+    Trie trie;
+    bool success = trie.Insert<int>("a", 5);
+    EXPECT_EQ(success, true);
+    success = trie.Insert<int>("aa", 6);
+    EXPECT_EQ(success, true);
+    success = trie.Insert<int>("aaa", 7);
+    EXPECT_EQ(success, true);
+
+    success = trie.Remove("a");
+    EXPECT_EQ(success, true);
+    EXPECT_EQ(trie.GetValue<int>("aaa", &success), 7);
+    trie.GetValue<int>("a", &success);
+    EXPECT_EQ(success, false);
+
+    success = trie.Remove("aa");
+    EXPECT_EQ(success, true);
+    success = trie.Remove("aaa");
+    EXPECT_EQ(success, true);
+  }
+  {
+    Trie trie;
+    bool success = trie.Insert<int>("a", 5);
+    EXPECT_EQ(success, true);
+    success = trie.Insert<int>("ab", 6);
+    EXPECT_EQ(success, true);
+    success = trie.Insert<int>("abc", 7);
+    EXPECT_EQ(success, true);
+
+    success = trie.Remove("a");
+    EXPECT_EQ(success, true);
+    success = trie.Remove("ab");
+    EXPECT_EQ(success, true);
+    success = trie.Remove("abc");
+  }
 }
 
 TEST(StarterTrieTest, ConcurrentTest1) {

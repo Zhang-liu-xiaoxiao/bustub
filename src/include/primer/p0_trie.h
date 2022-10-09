@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <deque>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -353,7 +354,7 @@ class Trie {
     if (key.empty()) {
       return false;
     }
-    std::vector<std::unique_ptr<TrieNode> *> path_vec;
+    std::deque<std::unique_ptr<TrieNode> *> path_vec;
     latch_.WLock();
     if (root_->GetChildNode(key.at(0)) == nullptr) {
       latch_.WUnlock();
@@ -369,9 +370,15 @@ class Trie {
       path_vec.push_back(cur_node);
       cur_node = cur_node->get()->GetChildNode(key[i]);
     }
+    cur_node->get()->SetEndNode(false);
     int str_index = key.length() - 1;
-    for (int i = str_index - 1; i >= 0; --i) {
-      auto ptr = path_vec[i];
+    for (int i = str_index; i > 0; --i) {
+      if (path_vec.empty()) {
+        latch_.WUnlock();
+        return false;
+      }
+      auto ptr = path_vec.back();
+      path_vec.pop_back();
       if (!ptr->get()->GetChildNode(key[i])->get()->HasChildren()) {
         ptr->get()->RemoveChildNode(key[i]);
       }

@@ -20,9 +20,11 @@
 #include <list>
 #include <memory>
 #include <mutex>  // NOLINT
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "common/rwlatch.h"
 #include "container/hash/hash_table.h"
 
 namespace bustub {
@@ -172,7 +174,9 @@ class ExtendibleHashTable : public HashTable<K, V> {
   size_t bucket_size_;  // The size of a bucket
   int num_buckets_;     // The number of buckets in the hash table
   mutable std::mutex latch_;
-  std::vector<std::shared_ptr<Bucket>> dir_;  // The directory of the hash table
+  std::vector<std::unique_ptr<std::mutex>> bucket_locks_;  // lock for specific bucket
+  std::vector<std::shared_ptr<Bucket>> dir_;               // The directory of the hash table
+  std::unordered_map<int, int> index_2_lock_;              // dir index to lock index;
 
   // The following functions are completely optional, you can delete them if you have your own ideas.
 
@@ -180,7 +184,7 @@ class ExtendibleHashTable : public HashTable<K, V> {
    * @brief Redistribute the kv pairs in a full bucket.
    * @param bucket The bucket to be redistributed.
    */
-  auto RedistributeBucket(std::shared_ptr<Bucket> bucket) -> void;
+  auto RedistributeBucket(std::shared_ptr<Bucket> bucket, size_t bucket_index) -> void;
 
   /*****************************************************************
    * Must acquire latch_ first before calling the below functions. *

@@ -10,7 +10,7 @@
 
 namespace bustub {
 
-TEST(ExtendibleHashTableTest, DISABLED_SampleTest) {
+TEST(ExtendibleHashTableTest, SampleTest) {
   auto table = std::make_unique<ExtendibleHashTable<int, std::string>>(2);
 
   table->Insert(1, "a");
@@ -42,7 +42,59 @@ TEST(ExtendibleHashTableTest, DISABLED_SampleTest) {
   EXPECT_FALSE(table->Remove(20));
 }
 
-TEST(ExtendibleHashTableTest, DISABLED_ConcurrentInsertTest) {
+TEST(ExtendibleHashTableTest, MoreSampleTest) {
+  auto table = std::make_unique<ExtendibleHashTable<int, std::string>>(3);
+
+  table->Insert(16, "16");
+  table->Insert(4, "4");
+  table->Insert(6, "6");
+  table->Insert(22, "22");
+  table->Insert(24, "24");
+  table->Insert(10, "10");
+  table->Insert(31, "31");
+  table->Insert(7, "7");
+  table->Insert(9, "9");
+  table->Insert(20, "20");
+  table->Insert(26, "26");
+  EXPECT_EQ(3, table->GetLocalDepth(0));
+  EXPECT_EQ(1, table->GetLocalDepth(1));
+  EXPECT_EQ(1, table->GetLocalDepth(3));
+  EXPECT_EQ(1, table->GetLocalDepth(5));
+  EXPECT_EQ(1, table->GetLocalDepth(7));
+  EXPECT_EQ(3, table->GetLocalDepth(2));
+  EXPECT_EQ(3, table->GetLocalDepth(6));
+  EXPECT_EQ(3, table->GetLocalDepth(4));
+
+  std::string result;
+  table->Find(9, result);
+  EXPECT_EQ("9", result);
+  table->Find(26, result);
+  EXPECT_EQ("26", result);
+  table->Find(24, result);
+  EXPECT_EQ("24", result);
+  table->Find(31, result);
+  EXPECT_EQ("31", result);
+  table->Find(7, result);
+  EXPECT_EQ("7", result);
+  table->Find(4, result);
+  EXPECT_EQ("4", result);
+  table->Find(6, result);
+  EXPECT_EQ("6", result);
+  EXPECT_FALSE(table->Find(25, result));
+
+  EXPECT_TRUE(table->Remove(7));
+  EXPECT_TRUE(table->Remove(4));
+  EXPECT_TRUE(table->Remove(6));
+  EXPECT_FALSE(table->Remove(8));
+  EXPECT_FALSE(table->Remove(36));
+  EXPECT_FALSE(table->Remove(2));
+
+  EXPECT_FALSE(table->Find(7, result));
+  EXPECT_FALSE(table->Find(4, result));
+  EXPECT_FALSE(table->Find(6, result));
+}
+
+TEST(ExtendibleHashTableTest, ConcurrentInsertTest) {
   const int num_runs = 50;
   const int num_threads = 3;
 
