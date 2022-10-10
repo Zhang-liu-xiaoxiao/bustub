@@ -268,7 +268,7 @@ GTEST_API_ bool LogIsVisible(LogSeverity severity);
 // Prints the given message to stdout if and only if 'severity' >= the level
 // specified by the --gmock_verbose flag.  If stack_frames_to_skip >=
 // 0, also prints the stack trace excluding the top
-// stack_frames_to_skip frames.  In opt mode, any positive
+// stack_frames_to_skip frames_.  In opt mode, any positive
 // stack_frames_to_skip is treated as 0, since we don't know which
 // function calls will be inlined by the compiler and need to be
 // conservative.

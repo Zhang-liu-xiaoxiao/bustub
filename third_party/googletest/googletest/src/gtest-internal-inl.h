@@ -408,18 +408,18 @@ class OsStackTraceGetterInterface {
 
   // Returns the current OS stack trace as an std::string.  Parameters:
   //
-  //   max_depth  - the maximum number of stack frames to be included
+  //   max_depth  - the maximum number of stack frames_ to be included
   //                in the trace.
-  //   skip_count - the number of top frames to be skipped; doesn't count
+  //   skip_count - the number of top frames_ to be skipped; doesn't count
   //                against max_depth.
   virtual std::string CurrentStackTrace(int max_depth, int skip_count) = 0;
 
   // UponLeavingGTest() should be called immediately before Google Test calls
   // user code. It saves some information about the current stack that
-  // CurrentStackTrace() will use to find and hide Google Test stack frames.
+  // CurrentStackTrace() will use to find and hide Google Test stack frames_.
   virtual void UponLeavingGTest() = 0;
 
-  // This string is inserted in place of stack frames that are part of
+  // This string is inserted in place of stack frames_ that are part of
   // Google Test's implementation.
   static const char* const kElidedFramesMarker;
 
@@ -624,10 +624,10 @@ class GTEST_API_ UnitTestImpl {
 
   // Returns the current OS stack trace as an std::string.
   //
-  // The maximum number of stack frames to be included is specified by
+  // The maximum number of stack frames_ to be included is specified by
   // the gtest_stack_trace_depth flag.  The skip_count parameter
-  // specifies the number of top frames to be skipped, which doesn't
-  // count against the number of frames to be included.
+  // specifies the number of top frames_ to be skipped, which doesn't
+  // count against the number of frames_ to be included.
   //
   // For example, if Foo() calls Bar(), which in turn calls
   // CurrentOsStackTraceExceptTop(1), Foo() will be included in the

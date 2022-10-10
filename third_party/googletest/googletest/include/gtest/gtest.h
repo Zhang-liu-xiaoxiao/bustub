@@ -133,13 +133,13 @@ GTEST_DECLARE_int32_(repeat);
 GTEST_DECLARE_bool_(recreate_environments_when_repeating);
 
 // This flag controls whether Google Test includes Google Test internal
-// stack frames in failure stack traces.
+// stack frames_ in failure stack traces.
 GTEST_DECLARE_bool_(show_internal_stack_frames);
 
 // When this flag is specified, tests' order is randomized on every iteration.
 GTEST_DECLARE_bool_(shuffle);
 
-// This flag specifies the maximum number of stack frames to be
+// This flag specifies the maximum number of stack frames_ to be
 // printed in a failure message.
 GTEST_DECLARE_int32_(stack_trace_depth);
 

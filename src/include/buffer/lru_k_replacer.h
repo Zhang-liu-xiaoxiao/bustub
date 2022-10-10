@@ -12,10 +12,12 @@
 
 #pragma once
 
+#include <deque>
 #include <limits>
 #include <list>
 #include <mutex>  // NOLINT
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "common/config.h"
@@ -27,11 +29,11 @@ namespace bustub {
  * LRUKReplacer implements the LRU-k replacement policy.
  *
  * The LRU-k algorithm evicts a frame whose backward k-distance is maximum
- * of all frames. Backward k-distance is computed as the difference in time between
+ * of all frames_. Backward k-distance is computed as the difference in time between
  * current timestamp and the timestamp of kth previous access.
  *
  * A frame with less than k historical references is given
- * +inf as its backward k-distance. When multiple frames have +inf backward k-distance,
+ * +inf as its backward k-distance. When multiple frames_ have +inf backward k-distance,
  * classical LRU algorithm is used to choose victim.
  */
 class LRUKReplacer {
@@ -41,7 +43,7 @@ class LRUKReplacer {
    * TODO(P1): Add implementation
    *
    * @brief a new LRUKReplacer.
-   * @param num_frames the maximum number of frames the LRUReplacer will be required to store
+   * @param num_frames the maximum number of frames_ the LRUReplacer will be required to store
    */
   explicit LRUKReplacer(size_t num_frames, size_t k);
 
@@ -57,18 +59,18 @@ class LRUKReplacer {
   /**
    * TODO(P1): Add implementation
    *
-   * @brief Find the frame with largest backward k-distance and evict that frame. Only frames
+   * @brief Find the frame with largest backward k-distance and evict that frame. Only frames_
    * that are marked as 'evictable' are candidates for eviction.
    *
    * A frame with less than k historical references is given +inf as its backward k-distance.
-   * If multiple frames have inf backward k-distance, then evict the frame with the earliest
+   * If multiple frames_ have inf backward k-distance, then evict the frame with the earliest
    * timestamp overall.
    *
    * Successful eviction of a frame should decrement the size of replacer and remove the frame's
    * access history.
    *
    * @param[out] frame_id id of frame that is evicted.
-   * @return true if a frame is evicted successfully, false if no frames can be evicted.
+   * @return true if a frame is evicted successfully, false if no frames_ can be evicted.
    */
   auto Evict(frame_id_t *frame_id) -> bool;
 
@@ -126,7 +128,7 @@ class LRUKReplacer {
   /**
    * TODO(P1): Add implementation
    *
-   * @brief Return replacer's size, which tracks the number of evictable frames.
+   * @brief Return replacer's size, which tracks the number of evictable frames_.
    *
    * @return size_t
    */
@@ -140,6 +142,10 @@ class LRUKReplacer {
   [[maybe_unused]] size_t replacer_size_;
   [[maybe_unused]] size_t k_;
   std::mutex latch_;
+  std::deque<frame_id_t> history_{};
+  std::deque<frame_id_t> cached_{};
+  // page id -> (occurrences, can_evicted)
+  std::unordered_map<frame_id_t, std::pair<int, bool>> frames_{};
 };
 
 }  // namespace bustub

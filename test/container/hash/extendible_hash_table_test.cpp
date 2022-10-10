@@ -329,7 +329,6 @@ TEST(ExtendibleHashTest, LargeRandomInsertTest) {
   delete test;
 }
 
-
 TEST(ExtendibleHashTest, ConcurrentInsertTest) {
   const int num_runs = 50;
   const int num_threads = 3;

@@ -3169,7 +3169,7 @@ so:
   ::testing::FLAGS_gmock_verbose = "error";
 ```
 
-If you find gMock printing too many stack frames with its informational or
+If you find gMock printing too many stack frames_ with its informational or
 warning messages, remember that you can control their amount with the
 `--gtest_stack_trace_depth=max_depth` flag.
 

@@ -334,7 +334,7 @@ GTEST_DEFINE_bool_(
 
 GTEST_DEFINE_bool_(show_internal_stack_frames, false,
                    "True if and only if " GTEST_NAME_
-                   " should include internal stack frames when "
+                   " should include internal stack frames_ when "
                    "printing test failure stack traces.");
 
 GTEST_DEFINE_bool_(shuffle,
@@ -346,7 +346,7 @@ GTEST_DEFINE_int32_(
     stack_trace_depth,
     testing::internal::Int32FromGTestEnv("stack_trace_depth",
                                          testing::kMaxStackTraceDepth),
-    "The maximum number of stack frames to print when an "
+    "The maximum number of stack frames_ to print when an "
     "assertion fails.  The valid range is 0 through 100, inclusive.");
 
 GTEST_DEFINE_string_(
@@ -1094,10 +1094,10 @@ int UnitTestImpl::test_to_run_count() const {
 
 // Returns the current OS stack trace as an std::string.
 //
-// The maximum number of stack frames to be included is specified by
+// The maximum number of stack frames_ to be included is specified by
 // the gtest_stack_trace_depth flag.  The skip_count parameter
-// specifies the number of top frames to be skipped, which doesn't
-// count against the number of frames to be included.
+// specifies the number of top frames_ to be skipped, which doesn't
+// count against the number of frames_ to be included.
 //
 // For example, if Foo() calls Bar(), which in turn calls
 // CurrentOsStackTraceExceptTop(1), Foo() will be included in the
@@ -1105,7 +1105,7 @@ int UnitTestImpl::test_to_run_count() const {
 std::string UnitTestImpl::CurrentOsStackTraceExceptTop(int skip_count) {
   return os_stack_trace_getter()->CurrentStackTrace(
       static_cast<int>(GTEST_FLAG_GET(stack_trace_depth)), skip_count + 1
-      // Skips the user-specified number of frames plus this function
+      // Skips the user-specified number of frames_ plus this function
       // itself.
   );  // NOLINT
 }
@@ -1228,7 +1228,7 @@ void SplitString(const ::std::string& str, char delimiter,
 // Constructs an empty Message.
 // We allocate the stringstream separately because otherwise each use of
 // ASSERT/EXPECT in a procedure adds over 200 bytes to the procedure's
-// stack frame leading to huge stack frames in some cases; gcc does not reuse
+// stack frame leading to huge stack frames_ in some cases; gcc does not reuse
 // the stack space.
 Message::Message() : ss_(new ::std::stringstream) {
   // By default, we want there to be enough precision when printing
@@ -4943,7 +4943,7 @@ void StreamingListener::SocketWriter::MakeConnection() {
 // class OsStackTraceGetter
 
 const char* const OsStackTraceGetterInterface::kElidedFramesMarker =
-    "... " GTEST_NAME_ " internal frames ...";
+    "... " GTEST_NAME_ " internal frames_ ...";
 
 std::string OsStackTraceGetter::CurrentStackTrace(int max_depth, int skip_count)
     GTEST_LOCK_EXCLUDED_(mutex_) {
@@ -4957,7 +4957,7 @@ std::string OsStackTraceGetter::CurrentStackTrace(int max_depth, int skip_count)
   max_depth = std::min(max_depth, kMaxStackTraceDepth);
 
   std::vector<void*> raw_stack(max_depth);
-  // Skips the frames requested by the caller, plus this function.
+  // Skips the frames_ requested by the caller, plus this function.
   const int raw_stack_size =
       absl::GetStackTrace(&raw_stack[0], max_depth, skip_count + 1);
 
@@ -4970,7 +4970,7 @@ std::string OsStackTraceGetter::CurrentStackTrace(int max_depth, int skip_count)
   for (int i = 0; i < raw_stack_size; ++i) {
     if (raw_stack[i] == caller_frame &&
         !GTEST_FLAG_GET(show_internal_stack_frames)) {
-      // Add a marker to the trace and stop adding frames.
+      // Add a marker to the trace and stop adding frames_.
       absl::StrAppend(&result, kElidedFramesMarker, "\n");
       break;
     }
@@ -6236,10 +6236,10 @@ void UnitTestImpl::UnshuffleTests() {
 
 // Returns the current OS stack trace as an std::string.
 //
-// The maximum number of stack frames to be included is specified by
+// The maximum number of stack frames_ to be included is specified by
 // the gtest_stack_trace_depth flag.  The skip_count parameter
-// specifies the number of top frames to be skipped, which doesn't
-// count against the number of frames to be included.
+// specifies the number of top frames_ to be skipped, which doesn't
+// count against the number of frames_ to be included.
 //
 // For example, if Foo() calls Bar(), which in turn calls
 // GetCurrentOsStackTraceExceptTop(..., 1), Foo() will be included in

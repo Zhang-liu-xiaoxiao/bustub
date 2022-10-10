@@ -46,7 +46,7 @@ class BufferPoolManagerInstance : public BufferPoolManager {
    */
   ~BufferPoolManagerInstance() override;
 
-  /** @brief Return the size (number of frames) of the buffer pool. */
+  /** @brief Return the size (number of frames_) of the buffer pool. */
   auto GetPoolSize() -> size_t override { return pool_size_; }
 
   /** @brief Return the pointer to all the pages in the buffer pool. */
@@ -56,7 +56,7 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   /**
    * TODO(P1): Add implementation
    *
-   * @brief Create a new page in the buffer pool. Set page_id to the new page's id, or nullptr if all frames
+   * @brief Create a new page in the buffer pool. Set page_id to the new page's id, or nullptr if all frames_
    * are currently in use and not evictable (in another word, pinned).
    *
    * You should pick the replacement frame from either the free list or the replacer (always find from the free list
@@ -76,7 +76,7 @@ class BufferPoolManagerInstance : public BufferPoolManager {
    * TODO(P1): Add implementation
    *
    * @brief Fetch the requested page from the buffer pool. Return nullptr if page_id needs to be fetched from the disk
-   * but all frames are currently in use and not evictable (in another word, pinned).
+   * but all frames_ are currently in use and not evictable (in another word, pinned).
    *
    * First search for page_id in the buffer pool. If not found, pick a replacement frame from either the free list or
    * the replacer (always find from the free list first), read the page from disk by calling disk_manager_->ReadPage(),
@@ -157,7 +157,7 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   ExtendibleHashTable<page_id_t, frame_id_t> *page_table_;
   /** Replacer to find unpinned pages for replacement. */
   LRUKReplacer *replacer_;
-  /** List of free frames that don't have any pages on them. */
+  /** List of free frames_ that don't have any pages on them. */
   std::list<frame_id_t> free_list_;
   /** This latch protects shared data structures. We recommend updating this comment to describe what it protects. */
   std::mutex latch_;
