@@ -20,6 +20,7 @@
 #include <list>
 #include <memory>
 #include <mutex>  // NOLINT
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -174,6 +175,7 @@ class ExtendibleHashTable : public HashTable<K, V> {
   size_t bucket_size_;  // The size of a bucket
   int num_buckets_;     // The number of buckets in the hash table
   mutable std::mutex latch_;
+  //  ReaderWriterLatch latch_;
   std::vector<std::unique_ptr<std::mutex>> bucket_locks_;  // lock for specific bucket
   std::vector<std::shared_ptr<Bucket>> dir_;               // The directory of the hash table
   std::unordered_map<int, int> index_2_lock_;              // dir index to lock index;
@@ -200,6 +202,7 @@ class ExtendibleHashTable : public HashTable<K, V> {
   auto GetGlobalDepthInternal() const -> int;
   auto GetLocalDepthInternal(int dir_index) const -> int;
   auto GetNumBucketsInternal() const -> int;
+  void OutPutFile(const std::string &filename);
 };
 
 }  // namespace bustub

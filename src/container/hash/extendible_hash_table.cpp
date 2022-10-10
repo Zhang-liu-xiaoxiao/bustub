@@ -12,6 +12,7 @@
 
 #include <cassert>
 #include <cstdlib>
+#include <fstream>
 #include <functional>
 #include <list>
 #include <set>
@@ -73,31 +74,33 @@ auto ExtendibleHashTable<K, V>::GetNumBucketsInternal() const -> int {
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Find(const K &key, V &value) -> bool {
+  std::scoped_lock<std::mutex> lock(latch_);
   auto bucket_index = IndexOf(key);
-  std::scoped_lock<std::mutex> lock(*bucket_locks_[index_2_lock_[bucket_index]]);
+  //  std::scoped_lock<std::mutex> lock(*bucket_locks_[index_2_lock_[bucket_index]]);
   std::shared_ptr<Bucket> bucket = dir_[bucket_index];
   return bucket->Find(key, value);
 }
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Remove(const K &key) -> bool {
+  std::scoped_lock<std::mutex> lock(latch_);
   auto bucket_index = IndexOf(key);
-  std::scoped_lock<std::mutex> lock(*bucket_locks_[index_2_lock_[bucket_index]]);
+  //  std::scoped_lock<std::mutex> lock(*bucket_locks_[index_2_lock_[bucket_index]]);
   std::shared_ptr<Bucket> bucket = dir_[bucket_index];
   return bucket->Remove(key);
 }
 
 template <typename K, typename V>
 void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
-  auto bucket_index = IndexOf(key);
-  std::shared_ptr<Bucket> bucket{};
   {
-    std::scoped_lock<std::mutex> lock(*bucket_locks_[index_2_lock_[bucket_index]]);
-    bucket = dir_[bucket_index];
+    std::scoped_lock<std::mutex> lock(latch_);
+    auto bucket_index = IndexOf(key);
+    std::shared_ptr<Bucket> bucket = dir_[bucket_index];
+    //    std::scoped_lock<std::mutex> lock(*bucket_locks_[index_2_lock_[bucket_index]]);
     if (bucket->Insert(key, value)) {
       return;
     }
-    std::scoped_lock<std::mutex> lock_latch(latch_);
+    //    std::scoped_lock<std::mutex> lock_latch(latch_);
     RedistributeBucket(bucket, bucket_index);
   }
   Insert(key, value);
@@ -134,12 +137,12 @@ auto ExtendibleHashTable<K, V>::RedistributeBucket(std::shared_ptr<ExtendibleHas
   bucket->IncrementDepth();
   auto new_bucket = std::make_shared<Bucket>(bucket_size_, bucket->GetDepth());
   //! 注意到其实每次扩容只会影响到一个bucket,也就是新建一个,
-  //! 从低位开始找到这个新建的bucket该在的位置,然后就可以退出了
   //! 比如扩容前 bucket是 depth 3  001,扩容后depth 4, old bucket = 0001 新的是 1001
   for (size_t i = 0; i < dir_.size(); i++) {
-    if ((i & index_for_new_bucket) == index_for_new_bucket) {
+    size_t new_mask = (1 << bucket->GetDepth()) - 1;
+    if (((i ^ index_for_new_bucket) & new_mask) == 0) {
       dir_[i] = new_bucket;
-      break;
+      //      break;
     }
   }
   for (const auto &p : kv_list) {
