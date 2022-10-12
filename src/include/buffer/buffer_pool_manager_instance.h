@@ -159,7 +159,9 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   LRUKReplacer *replacer_;
   /** List of free frames_ that don't have any pages on them. */
   std::list<frame_id_t> free_list_;
-  /** This latch protects shared data structures. We recommend updating this comment to describe what it protects. */
+  /** This latch protects shared data structures. We recommend updating this comment to describe what it protects.
+   * Lock All For initial test
+   * */
   std::mutex latch_;
 
   /**
