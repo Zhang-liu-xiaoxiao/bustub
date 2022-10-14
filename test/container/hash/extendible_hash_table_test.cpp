@@ -145,6 +145,44 @@ TEST(ExtendibleHashTableTest, ConcurrentInsertFind) {
  }
 }
 
+
+TEST(ExtendibleHashTableTest, SimpleConcurrentInsertFind) {
+  const int num_runs = 1;
+  const int num_threads = 2;
+
+  // Run concurrent test multiple times to guarantee correctness.
+  for (int run = 0; run < num_runs; run++) {
+    auto table = std::make_unique<ExtendibleHashTable<int, std::string>>(2);
+    std::vector<std::thread> threads;
+    threads.reserve(num_threads);
+    for (int tid = 0; tid < num_threads; tid++) {
+      threads.emplace_back([tid, &table]() {
+        // for random number generation
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> dis(0, num_threads * 10);
+
+        for (int i = 0; i < 10; i++) {
+          table->Insert(tid * 10 + i, std::to_string(tid * 10 + i));
+
+          // Run Find on random keys to let Thread Sanitizer check for race conditions
+          std::string val;
+          table->Find(dis(gen), val);
+        }
+      });
+    }
+    for (int i = 0; i < num_threads; i++) {
+      threads[i].join();
+    }
+
+    for (int i = 0; i < num_threads * 10; i++) {
+      std::string val;
+      ASSERT_TRUE(table->Find(i, val));
+      ASSERT_EQ(std::to_string(i), val);
+    }
+  }
+}
+
 TEST(ExtendibleHashTableTest, ConcurrentRemoveInsert) {
  const int num_threads = 5;
  const int num_runs = 50;
