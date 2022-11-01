@@ -23,6 +23,7 @@ namespace bustub {
 
 #define BPLUSTREE_TYPE BPlusTree<KeyType, ValueType, KeyComparator>
 
+enum class TraversalType { READ = 0, WRITE, REMOVE };
 /**
  * Main class providing the API for the Interactive B+ Tree.
  *
@@ -57,6 +58,8 @@ class BPlusTree {
   // return the page id of the root node
   auto GetRootPageId() -> page_id_t;
 
+  auto TraversalsPage(KeyType key) -> LeafPage *;
+
   // index iterator
   auto Begin() -> INDEXITERATOR_TYPE;
   auto Begin(const KeyType &key) -> INDEXITERATOR_TYPE;
@@ -89,6 +92,10 @@ class BPlusTree {
   KeyComparator comparator_;
   int leaf_max_size_;
   int internal_max_size_;
+  std::mutex root_lock_;
+  void TransferLeafData(LeafPage *old_page, LeafPage *empty_page);
+  void InsertInternal(KeyType key, InternalPage *parent_page, page_id_t inserted_page);
+  void TransferInternalData(InternalPage *old_page, InternalPage *empty_page);
 };
 
 }  // namespace bustub
