@@ -51,10 +51,42 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType {
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
-  if (index < 0 ) {
-    return ;
+  if (index < 0) {
+    return;
   }
   array_[index].first = key;
+}
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::RemovePairAt(int index) {
+  assert(index > 0 && index < GetSize());
+  ClearAt(index);
+  for (int i = index; i < GetSize() - 1; ++i) {
+    array_[i] = std::move(array_[i + 1]);
+  }
+  IncreaseSize(-1);
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertHead(KeyType key, ValueType value) {
+  auto cur_size = GetSize();
+  for (int i = cur_size; i > 0; --i) {
+    array_[i] = std::move(array_[i - 1]);
+  }
+  int j = 1;
+  array_[j].first = key;
+  array_[0].first = {};
+  array_[0].second = value;
+  IncreaseSize(1);
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::RemoveHead() {
+  auto cur_size = GetSize();
+  for (int i = 0; i < cur_size - 1; ++i) {
+    array_[i] = std::move(array_[i + 1]);
+  }
+  array_[0].first = {};
+  IncreaseSize(-1);
 }
 
 /*
@@ -71,18 +103,17 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType {
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto BPlusTreeInternalPage<KeyType, ValueType, KeyComparator>::Insert(KeyType key, ValueType value,
-                                                                  KeyComparator comparator) -> bool {
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Insert(KeyType key, ValueType value, KeyComparator comparator) -> bool {
   int index = GetSize();
   for (int i = 1; i < GetSize(); ++i) {
     if (comparator(key, array_[i].first) < 0) {
       index = i;
       break;
-    } else if (comparator(key, array_[i].first) > 0) {
-      continue;
-    } else {
-      return false;
     }
+    if (comparator(key, array_[i].first) > 0) {
+      continue;
+    }
+    return false;
   }
   for (int i = GetSize(); i > index; --i) {
     array_[i] = array_[i - 1];
@@ -90,21 +121,34 @@ auto BPlusTreeInternalPage<KeyType, ValueType, KeyComparator>::Insert(KeyType ke
   array_[index] = std::move(std::make_pair(key, value));
   IncreaseSize(1);
   return true;
-
 }
-template <typename KeyType, typename ValueType, typename KeyComparator>
-void BPlusTreeInternalPage<KeyType, ValueType, KeyComparator>::SetValueAt(int index, const ValueType &value) {
-  if (index < 0 ) {
-    return ;
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetValueAt(int index, const ValueType &value) {
+  if (index < 0) {
+    return;
   }
   array_[index].second = value;
 }
-template <typename KeyType, typename ValueType, typename KeyComparator>
-void BPlusTreeInternalPage<KeyType, ValueType, KeyComparator>::ClearAt(int index) {
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::ClearAt(int index) {
   if (index < 0) {
     return;
   }
   array_[index] = {};
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::RemoveKey(KeyType key, KeyComparator comparator) {
+  for (int i = 1; i < GetSize(); ++i) {
+    if (comparator(key, array_[i].first) == 0) {
+      ClearAt(i);
+      for (int j = i; j < GetSize() - 1; ++j) {
+        array_[j] = std::move(array_[j + 1]);
+      }
+      IncreaseSize(-1);
+      return;
+    }
+  }
 }
 
 // valuetype for internalNode should be page id_t

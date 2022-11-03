@@ -59,7 +59,7 @@ class LRUKReplacer {
   /**
    * TODO(P1): Add implementation
    *
-   * @brief Find the frame with largest backward k-distance and evict that frame. Only frames_
+   * @brief KeyExist the frame with largest backward k-distance and evict that frame. Only frames_
    * that are marked as 'evictable' are candidates for eviction.
    *
    * A frame with less than k historical references is given +inf as its backward k-distance.

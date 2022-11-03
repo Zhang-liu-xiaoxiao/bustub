@@ -70,7 +70,7 @@ class ExtendibleHashTable : public HashTable<K, V> {
    *
    * TODO(P1): Add implementation
    *
-   * @brief Find the value associated with the given key.
+   * @brief KeyExist the value associated with the given key.
    *
    * Use IndexOf(key) to find the directory index the key hashes to.
    *
@@ -130,7 +130,7 @@ class ExtendibleHashTable : public HashTable<K, V> {
      *
      * TODO(P1): Add implementation
      *
-     * @brief Find the value associated with the given key in the bucket.
+     * @brief KeyExist the value associated with the given key in the bucket.
      * @param key The key to be searched.
      * @param[out] value The value associated with the key.
      * @return True if the key is found, false otherwise.

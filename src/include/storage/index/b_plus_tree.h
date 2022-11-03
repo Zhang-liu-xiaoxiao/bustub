@@ -59,6 +59,7 @@ class BPlusTree {
   auto GetRootPageId() -> page_id_t;
 
   auto TraversalsPage(KeyType key) -> LeafPage *;
+  void CreateNewTree(const KeyType &key, const ValueType &value);
 
   // index iterator
   auto Begin() -> INDEXITERATOR_TYPE;
@@ -77,6 +78,23 @@ class BPlusTree {
   // read data from file and remove one by one
   void RemoveFromFile(const std::string &file_name, Transaction *transaction = nullptr);
 
+  void DeleteEntry(const KeyType &key, Transaction *transaction, BPlusTreePage *page);
+
+  void TransferLeafData(LeafPage *old_page, LeafPage *empty_page);
+  void InsertInternal(KeyType key, InternalPage *parent_page, page_id_t inserted_page);
+  void TransferInternalData(InternalPage *old_page, InternalPage *empty_page);
+  void DoRemove(const KeyType &key, BPlusTreePage *page);
+  void MergePage(BPlusTreePage *front_page, BPlusTreePage *back_page, bool is_leaf, KeyType parent_separate_key);
+  void MergePages(const KeyType &parent_separate_key, BPlusTreePage *page, BPlusTreePage *sibling_page,
+                  InternalPage *parent_page, Transaction *transaction, bool sibling_page_before);
+
+  void GetSiblingInfo(InternalPage *parent_page, BPlusTreePage *page, bool *sibling_page_before,
+                      page_id_t *sibling_page_id, KeyType *parent_separate_key, int *key_index);
+  void BorrowPairFromFront(BPlusTreePage *page, BPlusTreePage *sibling_page, InternalPage *parent_page,
+                           const KeyType &parent_separate_key, int parent_key_index);
+  void BorrowPairFromAfter(BPlusTreePage *page, BPlusTreePage *sibling_page, InternalPage *parent_page,
+                           const KeyType &parent_separate_key, int parent_key_index);
+
  private:
   void UpdateRootPageId(int insert_record = 0);
 
@@ -93,9 +111,6 @@ class BPlusTree {
   int leaf_max_size_;
   int internal_max_size_;
   std::mutex root_lock_;
-  void TransferLeafData(LeafPage *old_page, LeafPage *empty_page);
-  void InsertInternal(KeyType key, InternalPage *parent_page, page_id_t inserted_page);
-  void TransferInternalData(InternalPage *old_page, InternalPage *empty_page);
 };
 
 }  // namespace bustub

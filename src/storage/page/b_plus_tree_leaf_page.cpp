@@ -34,7 +34,7 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id, in
   BPlusTreePage::SetPageType(IndexPageType::LEAF_PAGE);
   BPlusTreePage::SetMaxSize(max_size);
   BPlusTreePage::SetSize(0);
-
+  next_page_id_ = -1;
 }
 
 /**
@@ -53,13 +53,62 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::SetNextPageId(page_id_t next_page_id) { next_pa
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyAt(int index) const -> KeyType {
   // replace with your own code
-  if (index < 0 ) {
+  if (index < 0) {
     LOG_ERROR("Leaf Access Wrong index {%d}, cur array size:{%d}", index, GetSize());
     return {};
   }
   KeyType key{};
   key = array_[index].first;
   return key;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_LEAF_PAGE_TYPE::ClearAt(int index) {
+  if (index < 0) {
+    return;
+  }
+  array_[index] = {};
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_LEAF_PAGE_TYPE::RemoveKey(KeyType key, KeyComparator comparator) {
+  for (int i = 0; i < GetSize(); ++i) {
+    if (comparator(key, array_[i].first) == 0) {
+      RemovePairAt(i);
+    }
+  }
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_LEAF_PAGE_TYPE::RemovePairAt(int index) {
+  assert(index >= 0 && index < GetSize());
+  ClearAt(index);
+  for (int i = index; i < GetSize() - 1; ++i) {
+    array_[i] = std::move(array_[i + 1]);
+  }
+  IncreaseSize(-1);
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyExist(KeyType key, KeyComparator comparator) -> bool {
+  assert(GetSize() > 0);
+  return static_cast<bool>(KeyIndex(key, comparator) < GetSize());
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyIndex(KeyType key, KeyComparator comparator) -> int {
+  assert(GetSize() > 0);
+  int start = 0;
+  int end = GetSize() - 1;
+  while (start <= end) {
+    int mid = (end - start) / 2 + start;
+    if (comparator(key, array_[mid].first) <= 0) {
+      end = mid - 1;
+    } else {
+      start = mid + 1;
+    }
+  }
+  return end + 1;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
@@ -70,11 +119,11 @@ auto BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>::Insert(KeyType key, V
     if (comparator(key, array_[i].first) < 0) {
       index = i;
       break;
-    } else if (comparator(key, array_[i].first) > 0) {
-      continue;
-    } else {
-      return true;
     }
+    if (comparator(key, array_[i].first) > 0) {
+      continue;
+    }
+    return true;
   }
   for (int i = GetSize(); i > index; --i) {
     array_[i] = array_[i - 1];
@@ -87,7 +136,7 @@ auto BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>::Insert(KeyType key, V
 
 INDEX_TEMPLATE_ARGUMENTS
 auto BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>::ValueAt(int index) const -> ValueType {
-  if (index < 0 ) {
+  if (index < 0) {
     LOG_ERROR("Leaf Access Wrong index {%d}, cur array size:{%d}", index, GetSize());
     return {};
   }
@@ -96,14 +145,14 @@ auto BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>::ValueAt(int index) co
 }
 template <typename KeyType, typename ValueType, typename KeyComparator>
 void BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>::SetKeyAt(int index, const KeyType &key) {
-  if (index < 0 ) {
+  if (index < 0) {
     return;
   }
   array_[index].first = key;
 }
 template <typename KeyType, typename ValueType, typename KeyComparator>
 void BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>::SetValueAt(int index, const ValueType &value) {
-  if (index < 0 ) {
+  if (index < 0) {
     return;
   }
   array_[index].second = value;

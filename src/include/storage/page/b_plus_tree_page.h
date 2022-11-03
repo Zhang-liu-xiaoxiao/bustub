@@ -43,6 +43,7 @@ enum class IndexPageType { INVALID_INDEX_PAGE = 0, LEAF_PAGE, INTERNAL_PAGE };
 class BPlusTreePage {
  public:
   auto IsLeafPage() const -> bool;
+  auto IsInternalPage() const -> bool;
   auto IsRootPage() const -> bool;
   void SetPageType(IndexPageType page_type);
 
