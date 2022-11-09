@@ -171,12 +171,12 @@ auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
     return true;
   }
   auto &page = pages_[frame_id];
-  if (page.GetPinCount() > 0) {
-    // LOG_DEBUG("Delete Page %d, pinned", page_id);
-    LOG_DEBUG("page id :%d", page.page_id_);
-    assert(false);
-    return false;
-  }
+  //  if (page.GetPinCount() > 0) {
+  //    // LOG_DEBUG("Delete Page %d, pinned", page_id);
+  //    LOG_DEBUG("page id :%d", page.page_id_);
+  //    assert(false);
+  //    return false;
+  //  }
 
   page_table_->Remove(page_id);
   replacer_->Remove(frame_id);

@@ -25,8 +25,8 @@ class IndexIterator {
   // you may define your own constructor based on your member variables
   IndexIterator(B_PLUS_TREE_LEAF_PAGE_TYPE *page, int index, BufferPoolManager *buffer_pool_manager)
       : page_(page), index_(index), buffer_pool_manager_(buffer_pool_manager) {}
-  ~IndexIterator() { buffer_pool_manager_->UnpinPage(page_->GetPageId(), false); }
 
+  ~IndexIterator();
   auto IsEnd() -> bool;
 
   auto operator*() -> const MappingType &;

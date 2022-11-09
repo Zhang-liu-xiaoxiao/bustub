@@ -106,7 +106,10 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 
   if (leaf->GetSize() >= leaf->GetMaxSize()) {
     page_id_t new_page_id;
-    auto new_page = reinterpret_cast<LeafPage *>(buffer_pool_manager_->NewPage(&new_page_id)->GetData());
+    auto new_disk_page = buffer_pool_manager_->NewPage(&new_page_id);
+    new_disk_page->WLatch();
+    AddPageInTransaction(new_page_id, transaction, false);
+    auto new_page = reinterpret_cast<LeafPage *>(new_disk_page->GetData());
     KeyType up_insert_key = leaf->KeyAt(leaf_max_size_ / 2);
     page_id_t parent_id = leaf->GetParentPageId();
     InternalPage *parent_page = nullptr;
@@ -131,7 +134,6 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     leaf->SetNextPageId(new_page_id);
     TransferLeafData(leaf, new_page);
     assert((leaf->GetSize() + new_page->GetSize()) == leaf_max_size_);
-    buffer_pool_manager_->UnpinPage(new_page_id, true);
     InsertInternal(up_insert_key, parent_page, new_page_id, transaction);
   }
 
@@ -140,9 +142,30 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 }
 
 INDEX_TEMPLATE_ARGUMENTS
+auto BPlusTree<KeyType, ValueType, KeyComparator>::FindLeafPageSimple(KeyType key) -> LeafPage * {
+  page_id_t next_page_id = root_page_id_;
+  LeafPage *page;
+  while (true) {
+    page = reinterpret_cast<LeafPage *>(buffer_pool_manager_->FetchPage(next_page_id)->GetData());
+    if (page->IsLeafPage()) {
+      return reinterpret_cast<LeafPage *>(page);
+    }
+    auto internal_page = reinterpret_cast<InternalPage *>(page);
+    int index = internal_page->GetSize() - 1;
+    for (int i = 1; i < internal_page->GetSize(); ++i) {
+      if (comparator_(key, internal_page->KeyAt(i)) < 0) {
+        index = i - 1;
+        break;
+      }
+    }
+    next_page_id = internal_page->ValueAt(index);
+    buffer_pool_manager_->UnpinPage(page->GetPageId(), false);
+  }
+}
+
+INDEX_TEMPLATE_ARGUMENTS
 auto BPlusTree<KeyType, ValueType, KeyComparator>::FindLeafPage(KeyType key, OpType opType, Transaction *transaction)
     -> LeafPage * {
-  page_id_t next_page_id = root_page_id_;
   if (transaction != nullptr) {
     if (opType == OpType::READ) {
       virtual_root_->RLatch();
@@ -154,6 +177,7 @@ auto BPlusTree<KeyType, ValueType, KeyComparator>::FindLeafPage(KeyType key, OpT
     virtual_root_->RLatch();
   }
   page_id_t prev = -1;
+  page_id_t next_page_id = root_page_id_;
   while (true) {
     auto page = CrabingFetchPage(next_page_id, opType, transaction, prev);
     if (page->IsLeafPage()) {
@@ -373,7 +397,8 @@ void BPLUSTREE_TYPE::DeleteEntry(const KeyType &key, Transaction *transaction, B
     page_id_t new_root_id = reinterpret_cast<InternalPage *>(page)->ValueAt(0);
     reinterpret_cast<BPlusTreePage *>(page)->SetParentPageId(INVALID_PAGE_ID);
     MarkAsDelete(root_page_id_, transaction);
-    reinterpret_cast<BPlusTreePage*>(buffer_pool_manager_->FetchPage(new_root_id)->GetData())->SetParentPageId(INVALID_PAGE_ID);
+    reinterpret_cast<BPlusTreePage *>(buffer_pool_manager_->FetchPage(new_root_id)->GetData())
+        ->SetParentPageId(INVALID_PAGE_ID);
     buffer_pool_manager_->UnpinPage(new_root_id, true);
     root_page_id_ = new_root_id;
     return;
@@ -468,7 +493,8 @@ void BPLUSTREE_TYPE::DoRemove(const KeyType &key, BPlusTreePage *page) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
-  auto page = FindLeafPage({}, OpType::READ, nullptr);
+  auto page = FindLeafPageSimple({});
+  //  buffer_pool_manager_->UnpinPage(page->GetPageId(), false);
   return INDEXITERATOR_TYPE(page, 0, buffer_pool_manager_);
 }
 
@@ -479,7 +505,8 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
-  auto page = FindLeafPage(key, OpType::READ, nullptr);
+  auto page = FindLeafPageSimple(key);
+  //  buffer_pool_manager_->UnpinPage(page->GetPageId(), false);
   auto index = page->KeyIndex(key, comparator_);
   return INDEXITERATOR_TYPE(page, index, buffer_pool_manager_);
 }
@@ -491,13 +518,14 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::End() -> INDEXITERATOR_TYPE {
-  auto page = FindLeafPage({}, OpType::READ, nullptr);
+  auto page = FindLeafPageSimple({});
   while (page->GetNextPageId() != INVALID_PAGE_ID) {
     auto next_id = page->GetNextPageId();
-    buffer_pool_manager_->UnpinPage(page->GetNextPageId(), false);
+    buffer_pool_manager_->UnpinPage(page->GetPageId(), false);
     page = reinterpret_cast<LeafPage *>(buffer_pool_manager_->FetchPage(next_id)->GetData());
   }
-  return INDEXITERATOR_TYPE(page, page->GetSize() - 1, buffer_pool_manager_);
+  //  buffer_pool_manager_->UnpinPage(page->GetPageId(), false);
+  return INDEXITERATOR_TYPE(page, page->GetSize(), buffer_pool_manager_);
 }
 
 /**
@@ -738,7 +766,6 @@ INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::CrabingFetchPage(page_id_t page_id, OpType opType, Transaction *transaction, page_id_t prev_id)
     -> BPlusTreePage * {
   auto page = (buffer_pool_manager_->FetchPage(page_id));
-
   if (opType == OpType::READ) {
     page->RLatch();
   } else {
@@ -771,18 +798,18 @@ void BPLUSTREE_TYPE::FreePagesInTransaction(Transaction *transaction, OpType opT
     return;
   }
   assert(transaction);
-  std::list<Page *> tmp;
-  for (const auto p : *transaction->GetPageSet()) {
-    tmp.push_front(p);
-  }
-  for (auto p : tmp) {
+  //  std::list<Page *> tmp;
+  //  for (const auto p : *transaction->GetPageSet()) {
+  //    tmp.push_front(p);
+  //  }
+  for (auto p : *transaction->GetPageSet()) {
+    page_id_t id = p->GetPageId();
     if (opType == OpType::READ) {
       p->RUnlatch();
     } else {
       p->WUnlatch();
     }
     //! it's ok to unpin virtual root, no side effect
-    page_id_t id = p->GetPageId();
     buffer_pool_manager_->UnpinPage(id, true);
     if (transaction->GetDeletedPageSet()->find(id) != transaction->GetDeletedPageSet()->end()) {
       buffer_pool_manager_->DeletePage(id);

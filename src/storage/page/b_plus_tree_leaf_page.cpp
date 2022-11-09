@@ -98,17 +98,13 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyExist(KeyType key, KeyComparator comparator)
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyIndex(KeyType key, KeyComparator comparator) -> int {
   assert(GetSize() > 0);
-  int start = 0;
-  int end = GetSize() - 1;
-  while (start <= end) {
-    int mid = (end - start) / 2 + start;
-    if (comparator(key, array_[mid].first) <= 0) {
-      end = mid - 1;
-    } else {
-      start = mid + 1;
+
+  for (int i = 0; i < GetSize(); ++i) {
+    if (comparator(key, array_[i].first) == 0) {
+      return i;
     }
   }
-  return end + 1;
+  return GetSize();
 }
 
 INDEX_TEMPLATE_ARGUMENTS

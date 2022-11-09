@@ -14,7 +14,7 @@ namespace bustub {
 
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::IsEnd() -> bool {
-  return (page_->GetNextPageId() == INVALID_PAGE_ID && (index_ == page_->GetSize() - 1));
+  return (page_->GetNextPageId() == INVALID_PAGE_ID && (index_ == page_->GetSize()));
 }
 
 INDEX_TEMPLATE_ARGUMENTS
@@ -27,14 +27,19 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
     return *this;
   }
   if (page_->GetNextPageId() == INVALID_PAGE_ID) {
-    return *this;
+    index_ = page_->GetSize();
+  } else {
+    auto next_page = reinterpret_cast<B_PLUS_TREE_LEAF_PAGE_TYPE *>(
+        buffer_pool_manager_->FetchPage(page_->GetNextPageId())->GetData());
+    buffer_pool_manager_->UnpinPage(page_->GetPageId(), false);
+    this->page_ = next_page;
+    this->index_ = 0;
   }
-  auto next_page = reinterpret_cast<B_PLUS_TREE_LEAF_PAGE_TYPE *>(
-      buffer_pool_manager_->FetchPage(page_->GetNextPageId())->GetData());
-  buffer_pool_manager_->UnpinPage(page_->GetPageId(), false);
-  this->page_ = next_page;
-  this->index_ = 0;
   return *this;
+}
+template <typename KeyType, typename ValueType, typename KeyComparator>
+IndexIterator<KeyType, ValueType, KeyComparator>::~IndexIterator() {
+  buffer_pool_manager_->UnpinPage(page_->GetPageId(), false);
 }
 
 template class IndexIterator<GenericKey<4>, RID, GenericComparator<4>>;

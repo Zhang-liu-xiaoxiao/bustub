@@ -59,6 +59,8 @@ class BPlusTree {
   auto GetRootPageId() -> page_id_t;
 
   auto FindLeafPage(KeyType key, OpType opType, Transaction *transaction) -> LeafPage *;
+  auto FindLeafPageSimple(KeyType key) -> LeafPage *;
+
   void CreateNewTree(const KeyType &key, const ValueType &value);
 
   // index iterator
