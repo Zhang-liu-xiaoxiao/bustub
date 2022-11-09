@@ -74,22 +74,18 @@ auto ExtendibleHashTable<K, V>::GetNumBucketsInternal() const -> int {
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Find(const K &key, V &value) -> bool {
-  //  std::scoped_lock<std::mutex> lock(latch_);
   std::shared_lock<std::shared_mutex> r_lock(rw_latch_);
   auto bucket_index = IndexOf(key);
   std::shared_lock<std::shared_mutex> bucket_r_lock(*bucket_locks_[index_2_lock_[bucket_index]]);
 
-  //  std::scoped_lock<std::mutex> lock(*bucket_locks_[index_2_lock_[bucket_index]]);
   std::shared_ptr<Bucket> bucket = dir_[bucket_index];
   return bucket->Find(key, value);
 }
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Remove(const K &key) -> bool {
-  //  std::scoped_lock<std::mutex> lock(latch_);
   std::shared_lock<std::shared_mutex> r_lock(rw_latch_);
   auto bucket_index = IndexOf(key);
-  //  std::scoped_lock<std::mutex> lock(*bucket_locks_[index_2_lock_[bucket_index]]);
   std::unique_lock<std::shared_mutex> bucket_w_lock(*bucket_locks_[index_2_lock_[bucket_index]]);
   std::shared_ptr<Bucket> bucket = dir_[bucket_index];
   return bucket->Remove(key);
@@ -100,7 +96,6 @@ void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
   std::shared_ptr<Bucket> bucket;
   size_t bucket_index;
   {
-    //    std::scoped_lock<std::mutex> lock(latch_);
     std::shared_lock<std::shared_mutex> r_lock(rw_latch_);
     bucket_index = IndexOf(key);
     bucket = dir_[bucket_index];
@@ -108,7 +103,6 @@ void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
     if (bucket->Insert(key, value)) {
       return;
     }
-    //    std::scoped_lock<std::mutex> lock_latch(latch_);
   }
   {
     std::unique_lock<std::shared_mutex> w_lock(rw_latch_);
@@ -156,7 +150,6 @@ auto ExtendibleHashTable<K, V>::RedistributeBucket(size_t bucket_index) -> void 
     size_t new_mask = (1 << bucket->GetDepth()) - 1;
     if (((i ^ index_for_new_bucket) & new_mask) == 0) {
       dir_[i] = new_bucket;
-      //      break;
     }
   }
   for (const auto &p : kv_list) {
@@ -171,6 +164,9 @@ auto ExtendibleHashTable<K, V>::RedistributeBucket(size_t bucket_index) -> void 
   std::unordered_map<std::shared_ptr<Bucket>, int> buck_2_real_index;
   int count = 0;
   size_t k = 0;
+
+  //! assign index to the exact lock
+  //! because many indexes may belong to one bucket,so,one lock
   for (const auto &i : dir_) {
     if (buck_2_real_index.find(i) == buck_2_real_index.end()) {
       buck_2_real_index[i] = count;

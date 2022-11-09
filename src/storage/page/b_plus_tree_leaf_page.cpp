@@ -168,6 +168,13 @@ auto BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>::SearchKey(const KeyTy
   }
   return false;
 }
+template <typename KeyType, typename ValueType, typename KeyComparator>
+auto BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>::PairAt(int index) -> const std::pair<KeyType, ValueType> & {
+  if (index < 0 || index >= GetSize()) {
+    assert(false);
+  }
+  return array_[index];
+}
 
 template class BPlusTreeLeafPage<GenericKey<4>, RID, GenericComparator<4>>;
 template class BPlusTreeLeafPage<GenericKey<8>, RID, GenericComparator<8>>;

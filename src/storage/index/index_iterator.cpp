@@ -11,20 +11,31 @@ namespace bustub {
  * NOTE: you can change the destructor/constructor method here
  * set your own input parameters
  */
-INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::IndexIterator() = default;
 
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::~IndexIterator() = default;  // NOLINT
+auto INDEXITERATOR_TYPE::IsEnd() -> bool {
+  return (page_->GetNextPageId() == INVALID_PAGE_ID && (index_ == page_->GetSize() - 1));
+}
 
 INDEX_TEMPLATE_ARGUMENTS
-auto INDEXITERATOR_TYPE::IsEnd() -> bool { throw std::runtime_error("unimplemented"); }
+auto INDEXITERATOR_TYPE::operator*() -> const MappingType & { return page_->PairAt(index_); }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto INDEXITERATOR_TYPE::operator*() -> const MappingType & { throw std::runtime_error("unimplemented"); }
-
-INDEX_TEMPLATE_ARGUMENTS
-auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & { throw std::runtime_error("unimplemented"); }
+auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
+  if (index_ < (page_->GetSize() - 1)) {
+    index_++;
+    return *this;
+  }
+  if (page_->GetNextPageId() == INVALID_PAGE_ID) {
+    return *this;
+  }
+  auto next_page = reinterpret_cast<B_PLUS_TREE_LEAF_PAGE_TYPE *>(
+      buffer_pool_manager_->FetchPage(page_->GetNextPageId())->GetData());
+  buffer_pool_manager_->UnpinPage(page_->GetPageId(), false);
+  this->page_ = next_page;
+  this->index_ = 0;
+  return *this;
+}
 
 template class IndexIterator<GenericKey<4>, RID, GenericComparator<4>>;
 

@@ -169,7 +169,7 @@ TEST(BPlusTreeTests, InsertTest3) {
   int64_t start_key = 1;
   int64_t current_key = start_key;
   index_key.SetFromInteger(start_key);
-  for (auto iterator = tree.Begin(index_key); iterator != tree.End(); ++iterator) {
+  for (auto iterator = tree.Begin(index_key); iterator != tree.end(); ++iterator) {
     auto location = (*iterator).second;
     EXPECT_EQ(location.GetPageId(), 0);
     EXPECT_EQ(location.GetSlotNum(), current_key);
@@ -181,7 +181,7 @@ TEST(BPlusTreeTests, InsertTest3) {
   start_key = 3;
   current_key = start_key;
   index_key.SetFromInteger(start_key);
-  for (auto iterator = tree.Begin(index_key); iterator != tree.End(); ++iterator) {
+  for (auto iterator = tree.Begin(index_key); iterator != tree.end(); ++iterator) {
     auto location = (*iterator).second;
     EXPECT_EQ(location.GetPageId(), 0);
     EXPECT_EQ(location.GetSlotNum(), current_key);

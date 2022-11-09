@@ -23,7 +23,6 @@ namespace bustub {
 
 #define BPLUSTREE_TYPE BPlusTree<KeyType, ValueType, KeyComparator>
 
-enum class TraversalType { READ = 0, WRITE, REMOVE };
 /**
  * Main class providing the API for the Interactive B+ Tree.
  *
@@ -43,6 +42,7 @@ class BPlusTree {
   explicit BPlusTree(std::string name, BufferPoolManager *buffer_pool_manager, const KeyComparator &comparator,
                      int leaf_max_size = LEAF_PAGE_SIZE, int internal_max_size = INTERNAL_PAGE_SIZE);
 
+  ~BPlusTree();
   // Returns true if this B+ tree has no keys and values.
   auto IsEmpty() const -> bool;
 
@@ -58,7 +58,7 @@ class BPlusTree {
   // return the page id of the root node
   auto GetRootPageId() -> page_id_t;
 
-  auto TraversalsPage(KeyType key) -> LeafPage *;
+  auto FindLeafPage(KeyType key, OpType opType, Transaction *transaction) -> LeafPage *;
   void CreateNewTree(const KeyType &key, const ValueType &value);
 
   // index iterator
@@ -81,7 +81,7 @@ class BPlusTree {
   void DeleteEntry(const KeyType &key, Transaction *transaction, BPlusTreePage *page);
 
   void TransferLeafData(LeafPage *old_page, LeafPage *empty_page);
-  void InsertInternal(KeyType key, InternalPage *parent_page, page_id_t inserted_page);
+  void InsertInternal(KeyType key, InternalPage *parent_page, page_id_t inserted_page, Transaction *transaction);
   void TransferInternalData(InternalPage *old_page, InternalPage *empty_page);
   void DoRemove(const KeyType &key, BPlusTreePage *page);
   void MergePage(BPlusTreePage *front_page, BPlusTreePage *back_page, bool is_leaf, KeyType parent_separate_key);
@@ -94,6 +94,11 @@ class BPlusTree {
                            const KeyType &parent_separate_key, int parent_key_index);
   void BorrowPairFromAfter(BPlusTreePage *page, BPlusTreePage *sibling_page, InternalPage *parent_page,
                            const KeyType &parent_separate_key, int parent_key_index);
+  auto CrabingFetchPage(page_id_t page_id, OpType opType, Transaction *transaction, page_id_t prev_id)
+      -> BPlusTreePage *;
+  void FreePagesInTransaction(Transaction *transaction, OpType opType, page_id_t prev_id);
+  void AddPageInTransaction(page_id_t page_id, Transaction *transaction, bool deleted);
+  void MarkAsDelete(page_id_t page_id, Transaction *transaction);
 
  private:
   void UpdateRootPageId(int insert_record = 0);
@@ -110,7 +115,7 @@ class BPlusTree {
   KeyComparator comparator_;
   int leaf_max_size_;
   int internal_max_size_;
-  std::mutex root_lock_;
+  Page *virtual_root_{};
 };
 
 }  // namespace bustub

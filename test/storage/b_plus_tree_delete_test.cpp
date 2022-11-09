@@ -169,7 +169,7 @@ TEST(BPlusTreeTests, SimpleTest) {
   GenericComparator<8> comparator(key_schema.get());
 
   auto *disk_manager = new DiskManager("test.db");
-  BufferPoolManager *bpm = new BufferPoolManagerInstance(50, disk_manager);
+  BufferPoolManager *bpm = new BufferPoolManagerInstance(5, disk_manager);
   // create b+ tree
   BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3, 3);
   GenericKey<8> index_key;
@@ -184,7 +184,8 @@ TEST(BPlusTreeTests, SimpleTest) {
     index_key.SetFromInteger(key);
     tree.Insert(index_key, rid, transaction);
   }
-  std::vector<int64_t> remove_keys = {13, 3};
+  std::vector<int64_t> remove_keys = {13, 22,  3,   14, 1, 45, 25, 56, 27,  18,  24,
+                                      25, 123, 231, 11, 6, 78, 13, 23, 141, 425, 241};
   for (auto key : remove_keys) {
     index_key.SetFromInteger(key);
     tree.Remove(index_key, transaction);
