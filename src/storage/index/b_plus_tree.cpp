@@ -373,6 +373,8 @@ void BPLUSTREE_TYPE::DeleteEntry(const KeyType &key, Transaction *transaction, B
     page_id_t new_root_id = reinterpret_cast<InternalPage *>(page)->ValueAt(0);
     reinterpret_cast<BPlusTreePage *>(page)->SetParentPageId(INVALID_PAGE_ID);
     MarkAsDelete(root_page_id_, transaction);
+    reinterpret_cast<BPlusTreePage*>(buffer_pool_manager_->FetchPage(new_root_id)->GetData())->SetParentPageId(INVALID_PAGE_ID);
+    buffer_pool_manager_->UnpinPage(new_root_id, true);
     root_page_id_ = new_root_id;
     return;
   }
@@ -780,9 +782,11 @@ void BPLUSTREE_TYPE::FreePagesInTransaction(Transaction *transaction, OpType opT
       p->WUnlatch();
     }
     //! it's ok to unpin virtual root, no side effect
-    buffer_pool_manager_->UnpinPage(p->GetPageId(), true);
-    if (transaction->GetDeletedPageSet()->find(p->GetPageId()) != transaction->GetDeletedPageSet()->end()) {
-      buffer_pool_manager_->DeletePage(p->GetPageId());
+    page_id_t id = p->GetPageId();
+    buffer_pool_manager_->UnpinPage(id, true);
+    if (transaction->GetDeletedPageSet()->find(id) != transaction->GetDeletedPageSet()->end()) {
+      buffer_pool_manager_->DeletePage(id);
+      transaction->GetDeletedPageSet()->erase(id);
     }
   }
   assert(transaction->GetDeletedPageSet()->empty());

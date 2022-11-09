@@ -171,7 +171,7 @@ TEST(BPlusTreeTests, SimpleTest) {
   auto *disk_manager = new DiskManager("test.db");
   BufferPoolManager *bpm = new BufferPoolManagerInstance(5, disk_manager);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3, 3);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3,3);
   GenericKey<8> index_key;
   RID rid;
   auto *transaction = new Transaction(0);
@@ -198,5 +198,36 @@ TEST(BPlusTreeTests, SimpleTest) {
   remove("test.db");
   remove("test.log");
 }
+TEST(BPlusTreeTests, SimpleTest2) {
+  auto key_schema = ParseCreateStatement("a bigint");
+  GenericComparator<8> comparator(key_schema.get());
 
+  auto *disk_manager = new DiskManager("test.db");
+  BufferPoolManager *bpm = new BufferPoolManagerInstance(5, disk_manager);
+  // create b+ tree
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 2,3);
+  GenericKey<8> index_key;
+  RID rid;
+  auto *transaction = new Transaction(0);
+
+  std::vector<int64_t> keys = {1,2};
+  for (auto key : keys) {
+    int64_t value = key & 0xFFFFFFFF;
+    rid.Set(static_cast<int32_t>(key >> 32), value);
+    index_key.SetFromInteger(key);
+    tree.Insert(index_key, rid, transaction);
+  }
+  std::vector<int64_t> remove_keys = {1,2};
+  for (auto key : remove_keys) {
+    index_key.SetFromInteger(key);
+    tree.Remove(index_key, transaction);
+  }
+
+  bpm->UnpinPage(HEADER_PAGE_ID, true);
+  delete transaction;
+  delete disk_manager;
+  delete bpm;
+  remove("test.db");
+  remove("test.log");
+}
 }  // namespace bustub
