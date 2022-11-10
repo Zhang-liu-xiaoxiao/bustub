@@ -150,6 +150,20 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::RemoveKey(KeyType key, KeyComparator compar
     }
   }
 }
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::LookUp(KeyType key, KeyComparator comparator) -> int {
+  int left = 1;
+  int right = GetSize() - 1;
+  while (left <= right) {
+    int mid = left + (right - left) / 2;
+    if (comparator(key, array_[mid].first) < 0) {
+      right = mid - 1;
+    } else if (comparator(key, array_[mid].first) >= 0) {
+      left = mid + 1;
+    }
+  }
+  return left - 1;
+}
 
 // valuetype for internalNode should be page id_t
 template class BPlusTreeInternalPage<GenericKey<4>, page_id_t, GenericComparator<4>>;

@@ -84,10 +84,11 @@ class BPlusTree {
 
   void TransferLeafData(LeafPage *old_page, LeafPage *empty_page);
   void InsertInternal(KeyType key, InternalPage *parent_page, page_id_t inserted_page, Transaction *transaction);
-  void TransferInternalData(InternalPage *old_page, InternalPage *empty_page);
+  void TransferInternalData(BPlusTree::InternalPage *old_page, BPlusTree::InternalPage *empty_page,
+                            Transaction *transaction);
   void DoRemove(const KeyType &key, BPlusTreePage *page);
   void MergePage(BPlusTreePage *front_page, BPlusTreePage *back_page, bool is_leaf, KeyType parent_separate_key,
-                 bool sibling_page_before);
+                 bool sibling_page_before, Transaction *transaction);
   void MergePages(const KeyType &parent_separate_key, BPlusTreePage *page, BPlusTreePage *sibling_page,
                   InternalPage *parent_page, Transaction *transaction, bool sibling_page_before);
 

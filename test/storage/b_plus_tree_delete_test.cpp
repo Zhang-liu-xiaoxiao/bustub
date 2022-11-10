@@ -255,7 +255,7 @@ TEST(BPlusTreeDeleteTests, Insert_Delete_Check) {
 
     //    std::vector<int64_t> keys{5,1,7,6,2,4,3,8};
     std::vector<int64_t> keys;
-    int scale = 500;  // at first, set a small number(6-10) to find bug
+    int scale = 50;  // at first, set a small number(6-10) to find bug
     for (int i = 0; i < scale; ++i) {
       keys.push_back(i + 1);
     }

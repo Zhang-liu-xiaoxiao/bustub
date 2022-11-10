@@ -120,11 +120,6 @@ auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> 
   if (is_dirty) {
     pages_[frame_id].is_dirty_ = is_dirty;
   }
-  if (pages_[frame_id].GetPinCount() <= 0) {
-    LOG_DEBUG("page id :%d", page_id);
-    assert(false);
-    return false;
-  }
   pages_[frame_id].pin_count_--;
   if (pages_[frame_id].GetPinCount() == 0) {
     replacer_->SetEvictable(frame_id, true);
@@ -171,13 +166,10 @@ auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
     return true;
   }
   auto &page = pages_[frame_id];
-  //  if (page.GetPinCount() > 0) {
-  //    // LOG_DEBUG("Delete Page %d, pinned", page_id);
-  //    LOG_DEBUG("page id :%d", page.page_id_);
-  //    assert(false);
-  //    return false;
-  //  }
-
+  if (page.GetPinCount() > 0) {
+    // LOG_DEBUG("Delete Page %d, pinned", page_id);
+    return false;
+  }
   page_table_->Remove(page_id);
   replacer_->Remove(frame_id);
   free_list_.push_back(frame_id);

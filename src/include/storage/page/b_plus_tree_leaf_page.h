@@ -60,6 +60,7 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   auto SearchKey(const KeyType &key, std::vector<ValueType> *result, KeyComparator comparator) -> bool;
   void RemoveKey(KeyType key, KeyComparator comparator);
   void RemovePairAt(int index);
+  auto LookUp(KeyType key, KeyComparator comparator) -> int;
 
  private:
   page_id_t next_page_id_;

@@ -48,6 +48,7 @@ class BPlusTreeInternalPage : public BPlusTreePage {
   void RemovePairAt(int index);
   void InsertHead(KeyType key, ValueType value);
   void RemoveHead();
+  auto LookUp(KeyType key, KeyComparator comparator) -> int;
 
  private:
   // Flexible array member for page data.

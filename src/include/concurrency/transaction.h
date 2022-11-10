@@ -209,6 +209,14 @@ class Transaction {
   /** @return the deleted page set */
   inline auto GetDeletedPageSet() -> std::shared_ptr<std::unordered_set<page_id_t>> { return deleted_page_set_; }
 
+  inline auto PageExist(page_id_t id) -> bool {
+    for (auto p : *page_set_) {
+      if (p->GetPageId() == id) {
+        return true;
+      }
+    }
+    return false;
+  }
   /**
    * Adds a page to the deleted page set.
    * @param page_id id of the page to be marked as deleted

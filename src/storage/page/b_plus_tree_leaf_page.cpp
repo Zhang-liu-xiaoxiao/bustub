@@ -91,7 +91,9 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::RemovePairAt(int index) {
 
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyExist(KeyType key, KeyComparator comparator) -> bool {
-  assert(GetSize() > 0);
+  if (GetSize() == 0) {
+    return false;
+  }
   return static_cast<bool>(KeyIndex(key, comparator) < GetSize());
 }
 
@@ -99,9 +101,17 @@ INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyIndex(KeyType key, KeyComparator comparator) -> int {
   assert(GetSize() > 0);
 
-  for (int i = 0; i < GetSize(); ++i) {
-    if (comparator(key, array_[i].first) == 0) {
-      return i;
+  int left = 0;
+  int right = GetSize() - 1;
+  while (left <= right) {
+    int mid = left + (right - left) / 2;
+    if (comparator(array_[mid].first, key) == 0) {
+      return mid;
+    }
+    if (comparator(key, array_[mid].first) < 0) {
+      right = mid - 1;
+    } else {
+      left = mid + 1;
     }
   }
   return GetSize();
@@ -110,17 +120,10 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyIndex(KeyType key, KeyComparator comparator)
 INDEX_TEMPLATE_ARGUMENTS
 auto BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>::Insert(KeyType key, ValueType value,
                                                                   KeyComparator comparator) -> bool {
-  int index = GetSize();
-  for (int i = 0; i < GetSize(); ++i) {
-    if (comparator(key, array_[i].first) < 0) {
-      index = i;
-      break;
-    }
-    if (comparator(key, array_[i].first) > 0) {
-      continue;
-    }
+  if (KeyExist(key, comparator)) {
     return true;
   }
+  int index = LookUp(key, comparator);
   for (int i = GetSize(); i > index; --i) {
     array_[i] = array_[i - 1];
   }
@@ -156,11 +159,13 @@ void BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>::SetValueAt(int index,
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>::SearchKey(const KeyType &key, std::vector<ValueType> *result,
                                                                      KeyComparator comparator) -> bool {
-  for (int i = 0; i < GetSize(); ++i) {
-    if (comparator(key, KeyAt(i)) == 0) {
-      result->push_back(ValueAt(i));
-      return true;
-    }
+  if (GetSize() == 0) {
+    return false;
+  }
+  int index = KeyIndex(key, comparator);
+  if (index != GetSize()) {
+    result->push_back(array_[index].second);
+    return true;
   }
   return false;
 }
@@ -170,6 +175,20 @@ auto BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>::PairAt(int index) -> 
     assert(false);
   }
   return array_[index];
+}
+template <typename KeyType, typename ValueType, typename KeyComparator>
+auto BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>::LookUp(KeyType key, KeyComparator comparator) -> int {
+  int left = 0;
+  int right = GetSize() - 1;
+  while (left <= right) {
+    int mid = left + (right - left) / 2;
+    if (comparator(key, array_[mid].first) < 0) {
+      right = mid - 1;
+    } else if (comparator(key, array_[mid].first) >= 0) {
+      left = mid + 1;
+    }
+  }
+  return left;
 }
 
 template class BPlusTreeLeafPage<GenericKey<4>, RID, GenericComparator<4>>;
