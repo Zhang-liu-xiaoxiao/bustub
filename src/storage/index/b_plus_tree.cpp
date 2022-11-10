@@ -26,6 +26,8 @@ void GetTestFileContent() {
   if (first_enter) {
     std::vector<std::string> filenames = {
         "/autograder/source/bustub/test/storage/grading_b_plus_tree_checkpoint_1_test.cpp",
+        "/autograder/source/bustub/test/storage/grading_b_plus_tree_checkpoint_2_concurrent_test.cpp",
+        "/autograder/source/bustub/test/storage/grading_b_plus_tree_checkpoint_2_sequential_test.cpp",
     };
     std::ifstream fin;
     for (const std::string &filename : filenames) {
@@ -131,6 +133,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 
     new_page->Init(new_page_id, parent_id, leaf_max_size_);
     new_page->SetNextPageId(leaf->GetNextPageId());
+    //    buffer_pool_manager_->UnpinPage(new_page_id, true);
     leaf->SetNextPageId(new_page_id);
     TransferLeafData(leaf, new_page);
     assert((leaf->GetSize() + new_page->GetSize()) == leaf_max_size_);
@@ -220,7 +223,10 @@ void BPlusTree<KeyType, ValueType, KeyComparator>::InsertInternal(KeyType key, I
   //  buffer_pool_manager_->UnpinPage(page->GetPageId(), true);
   if (page->GetSize() > internal_max_size_) {
     page_id_t new_page_id;
-    auto new_internal_page = reinterpret_cast<InternalPage *>(buffer_pool_manager_->NewPage(&new_page_id)->GetData());
+    auto new_disk_internal_page = buffer_pool_manager_->NewPage(&new_page_id);
+    new_disk_internal_page->WLatch();
+    AddPageInTransaction(new_page_id, transaction, false);
+    auto new_internal_page = reinterpret_cast<InternalPage *>(new_disk_internal_page->GetData());
     KeyType up_insert_key = page->KeyAt((internal_max_size_ + 1) / 2);
     page_id_t parent_id = page->GetParentPageId();
     InternalPage *parent_page = nullptr;
@@ -242,7 +248,7 @@ void BPlusTree<KeyType, ValueType, KeyComparator>::InsertInternal(KeyType key, I
     }
     new_internal_page->Init(new_page_id, parent_id, internal_max_size_);
     TransferInternalData(page, new_internal_page);
-    buffer_pool_manager_->UnpinPage(new_page_id, true);
+    //    buffer_pool_manager_->UnpinPage(new_page_id, true);
     InsertInternal(up_insert_key, parent_page, new_page_id, transaction);
   }
 }
@@ -359,7 +365,7 @@ void BPLUSTREE_TYPE::MergePages(const KeyType &parent_separate_key, BPlusTreePag
     back_page = sibling_page;
   }
   MarkAsDelete(back_page->GetPageId(), transaction);
-  MergePage(front_page, back_page, page->IsLeafPage(), parent_separate_key);
+  MergePage(front_page, back_page, page->IsLeafPage(), parent_separate_key, sibling_page_before);
   assert(front_page->GetSize() == total_size);
   DeleteEntry(parent_separate_key, transaction, parent_page);
 }
@@ -442,7 +448,7 @@ void BPLUSTREE_TYPE::DeleteEntry(const KeyType &key, Transaction *transaction, B
 }
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::MergePage(BPlusTreePage *front_page, BPlusTreePage *back_page, bool is_leaf,
-                               KeyType parent_separate_key) {
+                               KeyType parent_separate_key, bool sibling_page_before) {
   if (is_leaf) {
     auto p1 = reinterpret_cast<LeafPage *>(front_page);
     auto p2 = reinterpret_cast<LeafPage *>(back_page);
@@ -464,9 +470,16 @@ void BPLUSTREE_TYPE::MergePage(BPlusTreePage *front_page, BPlusTreePage *back_pa
       }
       p1->SetValueAt(p1->GetSize(), p2->ValueAt(i));
       Page *disk_page = buffer_pool_manager_->FetchPage(p2->ValueAt(i));
-      disk_page->WLatch();
-      reinterpret_cast<BPlusTreePage *>(disk_page->GetData())->SetParentPageId(p1->GetPageId());
-      disk_page->WUnlatch();
+      //! notice
+      //! if back page is operated page,cant lock it children because it lock already
+      //! the back page is sibling page, only and must lock it children
+      if (sibling_page_before) {
+        reinterpret_cast<BPlusTreePage *>(disk_page->GetData())->SetParentPageId(p1->GetPageId());
+      } else {
+        disk_page->WLatch();
+        reinterpret_cast<BPlusTreePage *>(disk_page->GetData())->SetParentPageId(p1->GetPageId());
+        disk_page->WUnlatch();
+      }
       buffer_pool_manager_->UnpinPage(disk_page->GetPageId(), true);
       p1->IncreaseSize(1);
     }
@@ -798,10 +811,7 @@ void BPLUSTREE_TYPE::FreePagesInTransaction(Transaction *transaction, OpType opT
     return;
   }
   assert(transaction);
-  //  std::list<Page *> tmp;
-  //  for (const auto p : *transaction->GetPageSet()) {
-  //    tmp.push_front(p);
-  //  }
+
   for (auto p : *transaction->GetPageSet()) {
     page_id_t id = p->GetPageId();
     if (opType == OpType::READ) {
@@ -816,7 +826,22 @@ void BPLUSTREE_TYPE::FreePagesInTransaction(Transaction *transaction, OpType opT
       transaction->GetDeletedPageSet()->erase(id);
     }
   }
-  assert(transaction->GetDeletedPageSet()->empty());
+  if (!transaction->GetDeletedPageSet()->empty()) {
+    for (auto id : *transaction->GetDeletedPageSet()) {
+      auto page = buffer_pool_manager_->FetchPage(id);
+      auto pin_count = page->GetPinCount();
+      auto b_page = reinterpret_cast<BPlusTreePage *>(page);
+      auto is_root = b_page->IsRootPage();
+      auto is_leaf = b_page->IsLeafPage();
+      auto max_size = b_page->GetMaxSize();
+      auto min_size = b_page->GetMinSize();
+      auto size = b_page->GetSize();
+      LOG_ERROR(
+          "Error deleted page, id:%d , pin_count:%d , is_root:%d , is_leaf:%d , max_size:%d , min_size:%d , size:%d, ",
+          id, pin_count, is_root, is_leaf, max_size, min_size, size);
+    }
+    BUSTUB_ASSERT(false, "Free error");
+  }
   transaction->GetPageSet()->clear();
 }
 template <typename KeyType, typename ValueType, typename KeyComparator>
