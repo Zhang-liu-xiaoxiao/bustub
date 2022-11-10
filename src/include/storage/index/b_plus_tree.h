@@ -103,6 +103,7 @@ class BPlusTree {
   void FreePagesInTransaction(Transaction *transaction, OpType opType, page_id_t prev_id);
   void AddPageInTransaction(page_id_t page_id, Transaction *transaction, bool deleted);
   void MarkAsDelete(page_id_t page_id, Transaction *transaction);
+  auto PageExist(Transaction *transaction, page_id_t page_id) -> bool;
 
  private:
   void UpdateRootPageId(int insert_record = 0);

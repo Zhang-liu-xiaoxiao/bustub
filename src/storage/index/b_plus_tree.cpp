@@ -253,9 +253,20 @@ void BPlusTree<KeyType, ValueType, KeyComparator>::TransferInternalData(BPlusTre
     empty_page->SetKeyAt(i, old_page->KeyAt(i + old_remain));
     empty_page->SetValueAt(i, old_page->ValueAt(i + old_remain));
     auto disk_page = buffer_pool_manager_->FetchPage(old_page->ValueAt(i + old_remain));
-    auto page = reinterpret_cast<BPlusTreePage *>(disk_page->GetData());
-    page->SetParentPageId(empty_page->GetPageId());
-    old_page->ClearAt(i + old_remain);
+    //    auto page = reinterpret_cast<BPlusTreePage *>(disk_page->GetData());
+    //    page->SetParentPageId(empty_page->GetPageId());
+    //    old_page->ClearAt(i + old_remain);
+    if (PageExist(transaction, i + old_remain)) {
+      disk_page->WLatch();
+      auto page = reinterpret_cast<BPlusTreePage *>(disk_page->GetData());
+      page->SetParentPageId(empty_page->GetPageId());
+      old_page->ClearAt(i + old_remain);
+      disk_page->WUnlatch();
+    } else {
+      auto page = reinterpret_cast<BPlusTreePage *>(disk_page->GetData());
+      page->SetParentPageId(empty_page->GetPageId());
+      old_page->ClearAt(i + old_remain);
+    }
     buffer_pool_manager_->UnpinPage(disk_page->GetPageId(), true);
   }
   old_page->SetSize(old_remain);
@@ -467,13 +478,14 @@ void BPLUSTREE_TYPE::MergePage(BPlusTreePage *front_page, BPlusTreePage *back_pa
       //! notice
       //! if back page is operated page,cant lock it children because it lock already
       //! the back page is sibling page, only and must lock it children
-      //      if (transaction->PageExist(disk_page->GetPageId())) {
-      reinterpret_cast<BPlusTreePage *>(disk_page->GetData())->SetParentPageId(p1->GetPageId());
-      //      } else {
-      //        disk_page->WLatch();
-      //        reinterpret_cast<BPlusTreePage *>(disk_page->GetData())->SetParentPageId(p1->GetPageId());
-      //        disk_page->WUnlatch();
-      //      }
+      //      reinterpret_cast<BPlusTreePage *>(disk_page->GetData())->SetParentPageId(p1->GetPageId());
+      if (PageExist(transaction, disk_page->GetPageId())) {
+        reinterpret_cast<BPlusTreePage *>(disk_page->GetData())->SetParentPageId(p1->GetPageId());
+      } else {
+        disk_page->WLatch();
+        reinterpret_cast<BPlusTreePage *>(disk_page->GetData())->SetParentPageId(p1->GetPageId());
+        disk_page->WUnlatch();
+      }
       buffer_pool_manager_->UnpinPage(disk_page->GetPageId(), true);
       p1->IncreaseSize(1);
     }
@@ -841,6 +853,16 @@ void BPLUSTREE_TYPE::FreePagesInTransaction(Transaction *transaction, OpType opT
 template <typename KeyType, typename ValueType, typename KeyComparator>
 BPlusTree<KeyType, ValueType, KeyComparator>::~BPlusTree() {
   delete virtual_root_;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto BPLUSTREE_TYPE::PageExist(Transaction *transaction, page_id_t page_id) -> bool {
+  for (auto p : *transaction->GetPageSet()) {
+    if (p->GetPageId() == page_id) {
+      return true;
+    }
+  }
+  return false;
 }
 
 template class BPlusTree<GenericKey<4>, RID, GenericComparator<4>>;
