@@ -106,7 +106,9 @@ TEST(BPlusTreeTests, DeleteTest2) {
   RID rid;
   // create transaction
   auto *transaction = new Transaction(0);
-
+  std::vector<RID> rids;
+  index_key.SetFromInteger(1);
+  tree.GetValue(index_key, &rids);
   // create and fetch header_page
   page_id_t page_id;
   auto header_page = bpm->NewPage(&page_id);
@@ -120,7 +122,6 @@ TEST(BPlusTreeTests, DeleteTest2) {
     tree.Insert(index_key, rid, transaction);
   }
 
-  std::vector<RID> rids;
   for (auto key : keys) {
     rids.clear();
     index_key.SetFromInteger(key);
@@ -253,7 +254,7 @@ TEST(BPlusTreeDeleteTests, Insert_Delete_Check) {
     auto header_page = bpm->NewPage(&page_id);
     (void)header_page;
 
-    //    std::vector<int64_t> keys{5,1,7,6,2,4,3,8};
+    //    std::vector<int64_t> keys{5, 1, 7, 6, 2, 4, 3, 8};
     std::vector<int64_t> keys;
     int scale = 50;  // at first, set a small number(6-10) to find bug
     for (int i = 0; i < scale; ++i) {
