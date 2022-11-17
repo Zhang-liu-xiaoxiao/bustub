@@ -1,6 +1,7 @@
 #include <fstream>
 #include <ios>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -77,6 +78,11 @@ auto ProcessExtraOptions(const std::string &sql, bustub::BustubInstance &instanc
           fmt::print("TopN not found\n");
           return false;
         }
+      } else if (opt == "ensure:topn*2") {
+        if (bustub::StringUtil::Split(result.str(), "TopN").size() != 3) {
+          fmt::print("TopN should appear exactly twice\n");
+          return false;
+        }
       } else if (opt == "ensure:index_join") {
         if (!bustub::StringUtil::Contains(result.str(), "NestedIndexJoin")) {
           fmt::print("NestedIndexJoin not found\n");
@@ -116,6 +122,14 @@ auto ProcessExtraOptions(const std::string &sql, bustub::BustubInstance &instanc
       }
       fmt::print("\n");
       fmt::print(">>>END\n");
+    } else if (bustub::StringUtil::StartsWith(opt, "explain")) {
+      auto writer = bustub::SimpleStreamWriter(std::cout);
+      auto x = bustub::StringUtil::Split(opt, "explain:");
+      if (!x.empty() && !x[0].empty()) {
+        instance.ExecuteSql(fmt::format("explain ({}) {}", x[0], sql), writer);
+      } else {
+        instance.ExecuteSql("explain " + sql, writer);
+      }
     } else {
       throw bustub::NotImplementedException(fmt::format("unsupported extra option: {}", opt));
     }
@@ -132,6 +146,7 @@ auto main(int argc, char **argv) -> int {  // NOLINT
   program.add_argument("file").help("the sqllogictest file to run");
   program.add_argument("--verbose").help("increase output verbosity").default_value(false).implicit_value(true);
   program.add_argument("-d", "--diff").help("write diff file").default_value(false).implicit_value(true);
+  program.add_argument("--in-memory").help("use in-memory backend").default_value(false).implicit_value(true);
 
   try {
     program.parse_args(argc, argv);
@@ -156,7 +171,14 @@ auto main(int argc, char **argv) -> int {  // NOLINT
 
   auto result = bustub::SQLLogicTestParser::Parse(script);
 
-  auto bustub = std::make_unique<bustub::BustubInstance>("test.db");
+  std::unique_ptr<bustub::BustubInstance> bustub;
+
+  if (program.get<bool>("--in-memory")) {
+    bustub = std::make_unique<bustub::BustubInstance>();
+  } else {
+    bustub = std::make_unique<bustub::BustubInstance>("test.db");
+  }
+
   bustub->GenerateMockTable();
 
   if (bustub->buffer_pool_manager_ != nullptr) {
@@ -195,7 +217,7 @@ auto main(int argc, char **argv) -> int {  // NOLINT
           }
 
           std::stringstream result;
-          auto writer = bustub::SimpleStreamWriter(result);
+          auto writer = bustub::SimpleStreamWriter(result, true);
           bustub->ExecuteSql(statement.sql_, writer);
           if (verbose) {
             fmt::print("----\n{}\n", result.str());
