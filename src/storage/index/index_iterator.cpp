@@ -13,9 +13,7 @@ namespace bustub {
  */
 
 INDEX_TEMPLATE_ARGUMENTS
-auto INDEXITERATOR_TYPE::IsEnd() -> bool {
-  return (page_->GetNextPageId() == INVALID_PAGE_ID && (index_ == page_->GetSize()));
-}
+auto INDEXITERATOR_TYPE::IsEnd() -> bool { return (page_ == nullptr && (index_ == -1)); }
 
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator*() -> const MappingType & { return page_->PairAt(index_); }
@@ -27,7 +25,10 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
     return *this;
   }
   if (page_->GetNextPageId() == INVALID_PAGE_ID) {
-    index_ = page_->GetSize();
+    buffer_pool_manager_->UnpinPage(page_->GetPageId(), false);
+    this->page_ = nullptr;
+    this->index_ = -1;
+
   } else {
     auto next_page = reinterpret_cast<B_PLUS_TREE_LEAF_PAGE_TYPE *>(
         buffer_pool_manager_->FetchPage(page_->GetNextPageId())->GetData());
@@ -39,7 +40,9 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
 }
 template <typename KeyType, typename ValueType, typename KeyComparator>
 IndexIterator<KeyType, ValueType, KeyComparator>::~IndexIterator() {
-  buffer_pool_manager_->UnpinPage(page_->GetPageId(), false);
+  if (page_ != nullptr) {
+    buffer_pool_manager_->UnpinPage(page_->GetPageId(), false);
+  }
 }
 
 template class IndexIterator<GenericKey<4>, RID, GenericComparator<4>>;

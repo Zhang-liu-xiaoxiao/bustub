@@ -70,8 +70,11 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
   }
   virtual_root_->RUnlatch();
   auto page = FindLeafPage(key, OpType::READ, transaction);
-  bool res;
-  res = page->SearchKey(key, result, comparator_);
+  if (page == nullptr) {
+    FreePagesInTransaction(transaction, OpType::READ, -1);
+    return false;
+  }
+  bool res = page->SearchKey(key, result, comparator_);
   //  buffer_pool_manager_->UnpinPage(page->GetPageId(), false);
   FreePagesInTransaction(transaction, OpType::READ, page->GetPageId());
   return res;
@@ -107,7 +110,11 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   virtual_root_->WUnlatch();
 
   auto leaf = FindLeafPage(key, OpType::INSERT, transaction);
-  assert(leaf);
+  if (leaf == nullptr) {
+    CreateNewTree(key, value);
+    FreePagesInTransaction(transaction, OpType::REMOVE, -1);
+    return true;
+  }
   auto exist = leaf->Insert(key, value, comparator_);
   if (exist) {
     FreePagesInTransaction(transaction, OpType::INSERT, -1);
@@ -156,15 +163,22 @@ INDEX_TEMPLATE_ARGUMENTS
 auto BPlusTree<KeyType, ValueType, KeyComparator>::FindLeafPageSimple(KeyType key) -> LeafPage * {
   page_id_t next_page_id = root_page_id_;
   LeafPage *page;
+  int depth = 0;
   while (true) {
+    depth++;
+    if (next_page_id == INVALID_PAGE_ID) {
+      return nullptr;
+    }
     page = reinterpret_cast<LeafPage *>(buffer_pool_manager_->FetchPage(next_page_id)->GetData());
     if (page->IsLeafPage()) {
+      //      LOG_DEBUG("Return page id:%d", page->GetPageId());
       return reinterpret_cast<LeafPage *>(page);
     }
     auto internal_page = reinterpret_cast<InternalPage *>(page);
     int index = internal_page->LookUp(key, comparator_);
     next_page_id = internal_page->ValueAt(index);
     buffer_pool_manager_->UnpinPage(page->GetPageId(), false);
+    // LOG_DEBUG("find page id :%d children:%d,depth:%d ", page->GetPageId(), next_page_id, depth);
   }
 }
 
@@ -183,15 +197,22 @@ auto BPlusTree<KeyType, ValueType, KeyComparator>::FindLeafPage(KeyType key, OpT
   }
   page_id_t prev = -1;
   page_id_t next_page_id = root_page_id_;
+  int depth = 0;
   while (true) {
+    if (next_page_id == INVALID_PAGE_ID) {
+      return nullptr;
+    }
+    depth++;
     auto page = CrabingFetchPage(next_page_id, opType, transaction, prev);
     if (page->IsLeafPage()) {
+      //      LOG_DEBUG("Return page id:%d", page->GetPageId());
       return reinterpret_cast<LeafPage *>(page);
     }
     auto internal_page = reinterpret_cast<InternalPage *>(page);
     int index = internal_page->LookUp(key, comparator_);
     prev = next_page_id;
     next_page_id = internal_page->ValueAt(index);
+    // LOG_DEBUG("find page  :%d children:%d ,depth:%d", page->GetPageId(), next_page_id, depth);
   }
 }
 
@@ -297,7 +318,10 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
   }
   virtual_root_->RUnlatch();
   auto leaf = FindLeafPage(key, OpType::REMOVE, transaction);
-  assert(leaf);
+  if (leaf == nullptr) {
+    FreePagesInTransaction(transaction, OpType::REMOVE, -1);
+    return;
+  }
   auto exist = leaf->KeyExist(key, comparator_);
   if (!exist) {
     FreePagesInTransaction(transaction, OpType::REMOVE, -1);
@@ -519,6 +543,9 @@ void BPLUSTREE_TYPE::DoRemove(const KeyType &key, BPlusTreePage *page) {
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
   auto page = FindLeafPageSimple({});
+  if (page == nullptr) {
+    return End();
+  }
   //  buffer_pool_manager_->UnpinPage(page->GetPageId(), false);
   return INDEXITERATOR_TYPE(page, 0, buffer_pool_manager_);
 }
@@ -532,6 +559,9 @@ INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
   auto page = FindLeafPageSimple(key);
   //  buffer_pool_manager_->UnpinPage(page->GetPageId(), false);
+  if (page == nullptr) {
+    return End();
+  }
   auto index = page->KeyIndex(key, comparator_);
   return INDEXITERATOR_TYPE(page, index, buffer_pool_manager_);
 }
@@ -542,16 +572,7 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
  * @return : index iterator
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::End() -> INDEXITERATOR_TYPE {
-  auto page = FindLeafPageSimple({});
-  while (page->GetNextPageId() != INVALID_PAGE_ID) {
-    auto next_id = page->GetNextPageId();
-    buffer_pool_manager_->UnpinPage(page->GetPageId(), false);
-    page = reinterpret_cast<LeafPage *>(buffer_pool_manager_->FetchPage(next_id)->GetData());
-  }
-  //  buffer_pool_manager_->UnpinPage(page->GetPageId(), false);
-  return INDEXITERATOR_TYPE(page, page->GetSize(), buffer_pool_manager_);
-}
+auto BPLUSTREE_TYPE::End() -> INDEXITERATOR_TYPE { return INDEXITERATOR_TYPE(nullptr, -1, nullptr); }
 
 /**
  * @return Page id of the root of this tree
@@ -832,28 +853,14 @@ void BPLUSTREE_TYPE::FreePagesInTransaction(Transaction *transaction, OpType opT
     } else {
       p->WUnlatch();
     }
+
     buffer_pool_manager_->UnpinPage(id, true);
     if (transaction->GetDeletedPageSet()->find(id) != transaction->GetDeletedPageSet()->end()) {
       buffer_pool_manager_->DeletePage(id);
       transaction->GetDeletedPageSet()->erase(id);
     }
   }
-  if (!transaction->GetDeletedPageSet()->empty()) {
-    for (auto id : *transaction->GetDeletedPageSet()) {
-      auto page = buffer_pool_manager_->FetchPage(id);
-      auto pin_count = page->GetPinCount();
-      auto b_page = reinterpret_cast<BPlusTreePage *>(page);
-      auto is_root = b_page->IsRootPage();
-      auto is_leaf = b_page->IsLeafPage();
-      auto max_size = b_page->GetMaxSize();
-      auto min_size = b_page->GetMinSize();
-      auto size = b_page->GetSize();
-      LOG_ERROR(
-          "Error deleted page, id:%d , pin_count:%d , is_root:%d , is_leaf:%d , max_size:%d , min_size:%d , size:%d, ",
-          id, pin_count, is_root, is_leaf, max_size, min_size, size);
-    }
-    BUSTUB_ASSERT(false, "Free error");
-  }
+
   transaction->GetPageSet()->clear();
 }
 template <typename KeyType, typename ValueType, typename KeyComparator>

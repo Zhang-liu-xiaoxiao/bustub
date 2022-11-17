@@ -163,6 +163,13 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::LookUp(KeyType key, KeyComparator comparato
     }
   }
   return left - 1;
+
+  //  for (int i = 1; i < GetSize(); ++i) {
+  //    if (comparator(key, array_[i].first) < 0) {
+  //      return i - 1;
+  //    }
+  //  }
+  //  return GetSize() - 1;
 }
 
 // valuetype for internalNode should be page id_t
