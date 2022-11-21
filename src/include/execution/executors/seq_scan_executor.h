@@ -50,5 +50,7 @@ class SeqScanExecutor : public AbstractExecutor {
  private:
   /** The sequential scan plan node to be executed */
   const SeqScanPlanNode *plan_;
+  TableIterator iterator_;
 };
+auto GetRetValues(const Schema *out_schema, const Schema *total_schema, TableIterator iterator) -> std::vector<Value>;
 }  // namespace bustub
