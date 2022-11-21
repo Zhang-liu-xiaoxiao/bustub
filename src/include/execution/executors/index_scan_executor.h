@@ -44,5 +44,9 @@ class IndexScanExecutor : public AbstractExecutor {
  private:
   /** The index scan plan node to be executed. */
   const IndexScanPlanNode *plan_;
+  BPlusTreeIndexForOneIntegerColumn *tree_index_;
+  IndexIterator<GenericKey<4>, RID, GenericComparator<4>> iterator_;
+
 };
+auto GetRetValues(const Schema *out_schema, const Schema *total_schema, const Tuple& tuple) -> std::vector<Value>;
 }  // namespace bustub
