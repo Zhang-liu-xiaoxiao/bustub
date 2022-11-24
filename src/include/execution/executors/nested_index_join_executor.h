@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <deque>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -50,5 +51,10 @@ class NestIndexJoinExecutor : public AbstractExecutor {
  private:
   /** The nested index join plan node. */
   const NestedIndexJoinPlanNode *plan_;
+  std::unique_ptr<AbstractExecutor> child_executor_;
+  std::deque<Tuple> join_res_;
+  IndexInfo *index_info_;
 };
+auto GetIndexJoinValues(const Schema *out_schema, const Schema *left_schema, const Schema *right_schema,
+                        const Tuple &left_tuple, const Tuple &right_tuple, bool left_only) -> std::vector<Value>;
 }  // namespace bustub

@@ -23,7 +23,7 @@ InsertExecutor::InsertExecutor(ExecutorContext *exec_ctx, const InsertPlanNode *
 void InsertExecutor::Init() {}
 
 auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
-  if (finished) {
+  if (finished_) {
     return false;
   }
   auto catalog = exec_ctx_->GetCatalog();
@@ -45,7 +45,7 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   std::vector<Value> t = {Value(INTEGER, count)};
   auto ret_schema = Schema({Column("", INTEGER)});
   *tuple = Tuple(t, &ret_schema);
-  finished = true;
+  finished_ = true;
   return true;
 }
 

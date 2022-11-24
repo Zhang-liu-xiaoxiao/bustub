@@ -46,7 +46,7 @@ auto GetRetValues(const Schema *out_schema, const Schema *total_schema, TableIte
   for (size_t i = 0; i < out_schema->GetColumnCount(); ++i) {
     auto column_name = out_schema->GetColumn(i).GetName();
     size_t pos = -1;
-    if ((pos = column_name.find(".")) != std::string::npos) {
+    if ((pos = column_name.find_last_of('.')) != std::string::npos) {
       column_name = column_name.substr(pos + 1, column_name.length());
     }
     values.push_back(iterator->GetValue(total_schema, total_schema->GetColIdx(column_name)));
