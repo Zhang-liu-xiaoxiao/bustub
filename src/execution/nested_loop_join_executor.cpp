@@ -83,9 +83,9 @@ auto GetJoinValues(const Schema *out_schema, const Schema *left_schema, const Sc
   values.reserve(out_schema->GetColumnCount());
   for (size_t i = 0; i < out_schema->GetColumnCount(); ++i) {
     auto column_name = out_schema->GetColumn(i).GetName();
-    if (std::find_if(left_schema->GetColumns().begin(), left_schema->GetColumns().end(), [column_name](const Column& c) {
-          return c.GetName() == column_name;
-        }) != left_schema->GetColumns().end()) {
+    if (std::find_if(left_schema->GetColumns().begin(), left_schema->GetColumns().end(),
+                     [column_name](const Column &c) { return c.GetName() == column_name; }) !=
+        left_schema->GetColumns().end()) {
       values.push_back(left_tuple.GetValue(left_schema, left_schema->GetColIdx(column_name)));
     } else {
       auto right_col_idx = right_schema->GetColIdx(column_name);

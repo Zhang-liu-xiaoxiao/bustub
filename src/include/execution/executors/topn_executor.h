@@ -12,7 +12,9 @@
 
 #pragma once
 
+#include <deque>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "execution/executor_context.h"
@@ -52,5 +54,12 @@ class TopNExecutor : public AbstractExecutor {
  private:
   /** The topn plan node to be executed */
   const TopNPlanNode *plan_;
+  std::unique_ptr<AbstractExecutor> child_executor_;
+  //  std::priority_queue<Tuple> heap_;
+  //  std::priority_queue<Tuple, std::vector<Tuple>> heap_;
+  std::deque<Tuple> out_;
 };
+
+auto CmpTuple(const Schema &schema, const std::vector<std::pair<OrderByType, AbstractExpressionRef>> &order_by,
+              const Tuple &t1, const Tuple &t2) -> CmpBool;
 }  // namespace bustub

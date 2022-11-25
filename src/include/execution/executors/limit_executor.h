@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <deque>
 #include <memory>
 #include <utility>
 
@@ -53,5 +54,9 @@ class LimitExecutor : public AbstractExecutor {
   const LimitPlanNode *plan_;
   /** The child executor from which tuples are obtained */
   std::unique_ptr<AbstractExecutor> child_executor_;
+
+  std::deque<Tuple> output_;
+
+  size_t count_ = 0;
 };
 }  // namespace bustub
