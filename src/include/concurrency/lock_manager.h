@@ -297,6 +297,9 @@ class LockManager {
    */
   auto RunCycleDetection() -> void;
 
+  auto TryLockTable(Transaction *txn, LockMode lock_mode, const std::shared_ptr<LockRequestQueue> &lock_queue,
+                   const table_oid_t &oid) -> bool;
+
  private:
   /** Fall 2022 */
   /** Structure that holds lock requests for a given table oid */
@@ -314,6 +317,9 @@ class LockManager {
   /** Waits-for graph representation. */
   std::unordered_map<txn_id_t, std::vector<txn_id_t>> waits_for_;
   std::mutex waits_for_latch_;
+  bool DoLockTable(Transaction *txn, LockManager::LockMode lock_mode,
+                   const std::shared_ptr<LockRequestQueue> &lock_queue, const table_oid_t &oid);
+  bool TableLockValidate(Transaction *txn, LockMode lock_mode);
 };
 
 }  // namespace bustub

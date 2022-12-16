@@ -18,7 +18,21 @@
 
 namespace bustub {
 
-auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> bool { return true; }
+auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> bool {
+  if (!TableLockValidate(txn, lock_mode)) {
+    return false;
+  }
+  std::shared_ptr<LockRequestQueue> lock_queue;
+  {
+    std::lock_guard<std::mutex> lock(table_lock_map_latch_);
+    if (table_lock_map_.find(oid) == table_lock_map_.end()) {
+      lock_queue = std::make_shared<LockRequestQueue>();
+    } else {
+      lock_queue = table_lock_map_[oid];
+    }
+  }
+  return TryLockTable(txn, lock_mode, lock_queue, oid);
+}
 
 auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool { return true; }
 
@@ -45,6 +59,56 @@ void LockManager::RunCycleDetection() {
     {  // TODO(students): detect deadlock
     }
   }
+}
+auto LockManager::TryLockTable(Transaction *txn, LockManager::LockMode lock_mode,
+                               const std::shared_ptr<LockRequestQueue> &lock_queue, const table_oid_t &oid) -> bool {
+  std::unique_lock<std::mutex> lock(lock_queue->latch_);
+  if (DoLockTable(txn, lock_mode, lock_queue, oid)) {
+    return true;
+  }
+  lock_queue->cv_.wait(lock, [&]() {
+    if (txn->GetState() == TransactionState::ABORTED) {
+      return true;
+    };
+    return false;
+  });
+  return txn->GetState() != TransactionState::ABORTED;
+}
+
+auto LockManager::DoLockTable(Transaction *txn, LockManager::LockMode lock_mode,
+                              const std::shared_ptr<LockRequestQueue> &lock_queue, const table_oid_t &oid) -> bool {
+  if (lock_queue->request_queue_.empty()) {
+    auto req = new LockRequest(txn->GetTransactionId(), lock_mode, oid);
+    lock_queue->request_queue_.push_back(req);
+    return true;
+  }
+  for (auto req : lock_queue->request_queue_) {
+
+  }
+  return false;
+}
+auto LockManager::TableLockValidate(Transaction *txn, LockManager::LockMode lock_mode) -> bool {
+  if (txn->GetState() == TransactionState::ABORTED) {
+    return false;
+  }
+  if (txn->GetIsolationLevel() == IsolationLevel::READ_UNCOMMITTED &&
+      (lock_mode == LockMode::SHARED || lock_mode == LockMode::INTENTION_SHARED ||
+       lock_mode == LockMode::SHARED_INTENTION_EXCLUSIVE)) {
+    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_SHARED_ON_READ_UNCOMMITTED);
+  }
+  if (txn->GetState() == TransactionState::SHRINKING) {
+    if (txn->GetIsolationLevel() == IsolationLevel::READ_UNCOMMITTED) {
+      throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
+    }
+    if (txn->GetIsolationLevel() == IsolationLevel::REPEATABLE_READ) {
+      throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
+    }
+    if (txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED &&
+        (lock_mode != LockMode::INTENTION_SHARED && lock_mode != LockMode::SHARED)) {
+      throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
+    }
+  }
+  return true;
 }
 
 }  // namespace bustub
