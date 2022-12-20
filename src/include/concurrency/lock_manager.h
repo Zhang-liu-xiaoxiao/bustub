@@ -298,7 +298,7 @@ class LockManager {
   auto RunCycleDetection() -> void;
 
   auto TryLockTable(Transaction *txn, LockMode lock_mode, const std::shared_ptr<LockRequestQueue> &lock_queue,
-                   const table_oid_t &oid) -> bool;
+                    const table_oid_t &oid) -> bool;
 
  private:
   /** Fall 2022 */
@@ -317,9 +317,12 @@ class LockManager {
   /** Waits-for graph representation. */
   std::unordered_map<txn_id_t, std::vector<txn_id_t>> waits_for_;
   std::mutex waits_for_latch_;
-  bool DoLockTable(Transaction *txn, LockManager::LockMode lock_mode,
-                   const std::shared_ptr<LockRequestQueue> &lock_queue, const table_oid_t &oid);
-  bool TableLockValidate(Transaction *txn, LockMode lock_mode);
+  auto ApplyLock(Transaction *txn, const std::shared_ptr<LockRequestQueue> &lock_queue, LockMode lock_mode) -> bool;
+  auto TableLockValidate(Transaction *txn, LockMode lock_mode) -> bool;
+  auto CheckUpgrade(Transaction *txn, LockMode lock_mode, const std::shared_ptr<LockRequestQueue> &lock_queue,
+                    const table_oid_t &oid) -> LockRequest *;
+  auto CheckCompatible(LockMode old_mode, LockMode new_mode) -> bool ;
+  void TableBookKeeping(Transaction *txn, LockManager::LockMode lock_mode, table_oid_t table_oid);
 };
 
 }  // namespace bustub
