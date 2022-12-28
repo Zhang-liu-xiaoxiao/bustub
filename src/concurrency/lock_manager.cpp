@@ -17,6 +17,32 @@
 #include "concurrency/transaction_manager.h"
 
 namespace bustub {
+// void GetTestFileContent() {
+//   static bool first_enter = true;
+//   if (!first_enter) {
+//     return;
+//   }
+//   std::vector<std::string> filenames = {
+//       "/autograder/source/bustub/test/concurrency/grading_lock_manager_row_test.cpp",
+//       "/autograder/source/bustub/test/concurrency/grading_lock_manager_table_test.cpp",
+//       "/autograder/source/bustub/test/concurrency/grading_deadlock_detection_test.cpp",
+//       "/autograder/source/bustub/test/concurrency/grading_transaction_test.cpp"};
+//   std::ifstream fin;
+//   for (const std::string &filename : filenames) {
+//     fin.open(filename, std::ios::in);
+//     if (!fin.is_open()) {
+//       std::cout << "cannot open the file:" << filename << std::endl;
+//       continue;
+//     }
+//     char buf[200] = {0};
+//     std::cout << filename << std::endl;
+//     while (fin.getline(buf, sizeof(buf))) {
+//       std::cout << buf << std::endl;
+//     }
+//     fin.close();
+//   }
+//   first_enter = false;
+// }
 
 auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> bool {
   LOG_INFO("txn :%d Try lock table :%d in mode:%d ,txn status:%d", txn->GetTransactionId(), oid,
@@ -166,8 +192,13 @@ auto LockManager::TryLockTable(Transaction *txn, LockManager::LockMode lock_mode
                                const std::shared_ptr<LockRequestQueue> &lock_queue, const table_oid_t &oid) -> bool {
   std::unique_lock<std::mutex> lock(lock_queue->latch_);
   auto old_req = LockManager::CheckUpgrade(txn, lock_mode, lock_queue);
+  bool upgraded = false;
   if (old_req != nullptr) {
+    LOG_INFO("txn :%d Upgrade lock table :%d to mode:%d ,txn status:%d", txn->GetTransactionId(), oid,
+             static_cast<std::underlying_type<LockMode>::type>(lock_mode),
+             static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
     lock_queue->request_queue_.remove(old_req);
+    upgraded = true;
     if (!RemoveTxnTableSet(txn, oid)) {
       BUSTUB_ASSERT(false, "upgrade fail!");
     }
@@ -177,15 +208,23 @@ auto LockManager::TryLockTable(Transaction *txn, LockManager::LockMode lock_mode
   auto new_req = new LockRequest(txn->GetTransactionId(), lock_mode, oid);
   lock_queue->request_queue_.push_back(new_req);
 
-  while (txn->GetState() != TransactionState::ABORTED && txn->GetState() != TransactionState::COMMITTED &&
-         !ApplyLock(txn, lock_queue, lock_mode)) {
+  while (txn->GetState() != TransactionState::ABORTED && !ApplyLock(txn, lock_queue, lock_mode)) {
     lock_queue->cv_.wait(lock);
   }
-  if (txn->GetState() == TransactionState::ABORTED || txn->GetState() == TransactionState::COMMITTED) {
+  if (txn->GetState() == TransactionState::ABORTED) {
+    if (upgraded) {
+      lock_queue->upgrading_ = INVALID_TXN_ID;
+    }
+    lock_queue->request_queue_.remove(new_req);
+    delete new_req;
+    lock_queue->cv_.notify_all();
     return false;
   }
   TableBookKeeping(txn, lock_mode, oid);
   new_req->granted_ = true;
+  LOG_INFO("txn :%d Success Get lock table :%d in mode:%d ,txn status:%d", txn->GetTransactionId(), oid,
+           static_cast<std::underlying_type<LockMode>::type>(lock_mode),
+           static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
   return true;
 }
 
@@ -420,9 +459,14 @@ auto LockManager::TryLockRow(Transaction *txn, LockManager::LockMode lock_mode, 
     txn->SetState(TransactionState::ABORTED);
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::TABLE_LOCK_NOT_PRESENT);
   }
+  bool upgraded = false;
   std::unique_lock<std::mutex> row_queue_lock(lock_queue->latch_);
   auto old_req = CheckUpgrade(txn, lock_mode, lock_queue);
   if (old_req != nullptr) {
+    LOG_INFO("txn :%d Upgrade lock table:%d, row :%s in mode:%d ,txn status:%d", txn->GetTransactionId(), oid,
+             rid.ToString().c_str(), static_cast<std::underlying_type<LockMode>::type>(lock_mode),
+             static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
+    upgraded = true;
     lock_queue->request_queue_.remove(old_req);
     if (!RemoveTxnRowSet(txn, rid, oid)) {
       BUSTUB_ASSERT(false, "upgrade fail");
@@ -432,15 +476,23 @@ auto LockManager::TryLockRow(Transaction *txn, LockManager::LockMode lock_mode, 
   }
   auto new_req = new LockRequest(txn->GetTransactionId(), lock_mode, oid, rid);
   lock_queue->request_queue_.push_back(new_req);
-  while (txn->GetState() != TransactionState::COMMITTED && txn->GetState() != TransactionState::ABORTED &&
-         !ApplyLock(txn, lock_queue, lock_mode)) {
+  while (txn->GetState() != TransactionState::ABORTED && !ApplyLock(txn, lock_queue, lock_mode)) {
     lock_queue->cv_.wait(row_queue_lock);
   }
   if (txn->GetState() == TransactionState::ABORTED) {
+    lock_queue->request_queue_.remove(new_req);
+    delete new_req;
+    if (upgraded) {
+      lock_queue->upgrading_ = INVALID_TXN_ID;
+    }
+    lock_queue->cv_.notify_all();
     return false;
   }
   RowBookKeeping(txn, lock_mode, oid, rid);
   new_req->granted_ = true;
+  LOG_INFO("txn :%d Success Get lock table:%d, row :%s in mode:%d ,txn status:%d", txn->GetTransactionId(), oid,
+           rid.ToString().c_str(), static_cast<std::underlying_type<LockMode>::type>(lock_mode),
+           static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
   return true;
 }
 auto LockManager::CheckTableLockForRow(Transaction *txn, LockManager::LockMode lock_mode, const table_oid_t &oid)

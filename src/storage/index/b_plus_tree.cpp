@@ -21,32 +21,6 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, BufferPoolManager *buffer_pool_manag
   virtual_root_ = new Page();
 }
 
-void GetTestFileContent() {
-  static bool first_enter = true;
-  if (first_enter) {
-    std::vector<std::string> filenames = {
-        "/autograder/source/bustub/test/storage/grading_b_plus_tree_checkpoint_1_test.cpp",
-        "/autograder/source/bustub/test/storage/grading_b_plus_tree_checkpoint_2_concurrent_test.cpp",
-        "/autograder/source/bustub/test/storage/grading_b_plus_tree_checkpoint_2_sequential_test.cpp",
-    };
-    std::ifstream fin;
-    for (const std::string &filename : filenames) {
-      fin.open(filename, std::ios::in);
-      if (!fin.is_open()) {
-        std::cout << "cannot open the file:" << filename << std::endl;
-        continue;
-      }
-      char buf[200] = {0};
-      std::cout << filename << std::endl;
-      while (fin.getline(buf, sizeof(buf))) {
-        std::cout << buf << std::endl;
-      }
-      fin.close();
-    }
-    first_enter = false;
-  }
-}
-
 /*
  * Helper function to decide whether current b+tree is empty
  */
@@ -62,7 +36,6 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return root_page_id_ == INVALID_P
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *transaction) -> bool {
-  //  GetTestFileContent();
   virtual_root_->RLatch();
   if (IsEmpty()) {
     virtual_root_->RUnlatch();
