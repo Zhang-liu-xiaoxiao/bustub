@@ -36,7 +36,6 @@ class TransactionManager;
 class LockManager {
  public:
   enum class LockMode { SHARED, EXCLUSIVE, INTENTION_SHARED, INTENTION_EXCLUSIVE, SHARED_INTENTION_EXCLUSIVE };
-
   /**
    * Structure to hold a lock request.
    * This could be a lock request on a table OR a row.
@@ -82,6 +81,20 @@ class LockManager {
   }
 
   ~LockManager() {
+    std::vector<LockRequest *> to_delete;
+    for (const auto &t_map : table_lock_map_) {
+      for (auto req : t_map.second->request_queue_) {
+        to_delete.push_back(req);
+      }
+    }
+    for (const auto &r_map : row_lock_map_) {
+      for (auto req : r_map.second->request_queue_) {
+        to_delete.push_back(req);
+      }
+    }
+    for (auto r : to_delete) {
+      delete r;
+    }
     enable_cycle_detection_ = false;
     cycle_detection_thread_->join();
     delete cycle_detection_thread_;
@@ -319,10 +332,18 @@ class LockManager {
   std::mutex waits_for_latch_;
   auto ApplyLock(Transaction *txn, const std::shared_ptr<LockRequestQueue> &lock_queue, LockMode lock_mode) -> bool;
   auto TableLockValidate(Transaction *txn, LockMode lock_mode) -> bool;
-  auto CheckUpgrade(Transaction *txn, LockMode lock_mode, const std::shared_ptr<LockRequestQueue> &lock_queue,
-                    const table_oid_t &oid) -> LockRequest *;
-  auto CheckCompatible(LockMode old_mode, LockMode new_mode) -> bool ;
+  auto CheckUpgrade(Transaction *txn, LockManager::LockMode lock_mode,
+                    const std::shared_ptr<LockRequestQueue> &lock_queue) -> LockRequest *;
+  auto CheckCompatible(LockMode old_mode, LockMode new_mode) -> bool;
   void TableBookKeeping(Transaction *txn, LockManager::LockMode lock_mode, table_oid_t table_oid);
+  auto RemoveTxnTableSet(Transaction *txn, const table_oid_t &oid) const -> bool;
+  void TwoPCPhaseChange(Transaction *txn, LockManager::LockRequest *req);
+  auto RowLockValidate(Transaction *txn, LockMode lock_mode) -> bool;
+  auto TryLockRow(Transaction *txn, LockManager::LockMode lock_mode, const table_oid_t &oid, const RID &rid,
+                  const std::shared_ptr<LockRequestQueue> &lock_queue) -> bool;
+  auto CheckTableLockForRow(Transaction *txn, LockManager::LockMode lock_mode, const table_oid_t &oid) -> bool;
+  auto RemoveTxnRowSet(Transaction *txn, const RID &rid, const table_oid_t &oid) -> bool;
+  void RowBookKeeping(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid);
 };
 
 }  // namespace bustub
