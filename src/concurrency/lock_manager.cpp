@@ -65,8 +65,8 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
     }
   }
   std::lock_guard<std::mutex> queue_lock(queue->latch_);
-  LockRequest *unlock_req = nullptr;
-  for (const auto req : queue->request_queue_) {
+  std::shared_ptr<LockRequest> unlock_req = nullptr;
+  for (const auto &req : queue->request_queue_) {
     if (req->granted_ && req->txn_id_ == txn->GetTransactionId()) {
       unlock_req = req;
       break;
@@ -78,7 +78,6 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
   }
   queue->request_queue_.remove(unlock_req);
   TwoPCPhaseChange(txn, unlock_req);
-  delete unlock_req;
   if (!RemoveTxnTableSet(txn, oid)) {
     BUSTUB_ASSERT(false, "Cannot happen");
   }
@@ -122,8 +121,8 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
     }
   }
   std::lock_guard<std::mutex> queue_lock(queue->latch_);
-  LockRequest *unlock_req = nullptr;
-  for (const auto req : queue->request_queue_) {
+  std::shared_ptr<LockRequest> unlock_req = nullptr;
+  for (const auto &req : queue->request_queue_) {
     if (req->granted_ && req->txn_id_ == txn->GetTransactionId()) {
       unlock_req = req;
       break;
@@ -135,7 +134,6 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
   }
   queue->request_queue_.remove(unlock_req);
   TwoPCPhaseChange(txn, unlock_req);
-  delete unlock_req;
   if (!RemoveTxnRowSet(txn, rid, oid)) {
     BUSTUB_ASSERT(false, "Cannot happen");
   }
@@ -214,16 +212,18 @@ void LockManager::RunCycleDetection() {
         auto tnx = TransactionManager::GetTransaction(dead);
         tnx->SetState(TransactionState::ABORTED);
         for (const auto &p : table_lock_map_) {
-          auto it = std::find_if(p.second->request_queue_.begin(), p.second->request_queue_.end(),
-                                 [&](LockRequest *req) { return !req->granted_ && req->txn_id_ == dead; });
+          auto it = std::find_if(
+              p.second->request_queue_.begin(), p.second->request_queue_.end(),
+              [&](const std::shared_ptr<LockRequest> &req) { return !req->granted_ && req->txn_id_ == dead; });
           if (it != p.second->request_queue_.end()) {
             p.second->cv_.notify_all();
             break;
           }
         }
         for (const auto &p : row_lock_map_) {
-          auto it = std::find_if(p.second->request_queue_.begin(), p.second->request_queue_.end(),
-                                 [&](LockRequest *req) { return !req->granted_ && req->txn_id_ == dead; });
+          auto it = std::find_if(
+              p.second->request_queue_.begin(), p.second->request_queue_.end(),
+              [&](const std::shared_ptr<LockRequest> &req) { return !req->granted_ && req->txn_id_ == dead; });
           if (it != p.second->request_queue_.end()) {
             p.second->cv_.notify_all();
             break;
@@ -238,9 +238,9 @@ void LockManager::RunCycleDetection() {
 void LockManager::BuildGraph() {
   for (const auto &p : table_lock_map_) {
     std::lock_guard<std::mutex> l(p.second->latch_);
-    for (const auto req : p.second->request_queue_) {
+    for (const auto &req : p.second->request_queue_) {
       if (!req->granted_) {
-        for (const auto r : p.second->request_queue_) {
+        for (const auto &r : p.second->request_queue_) {
           if (r->granted_ && !CheckCompatible(r->lock_mode_, req->lock_mode_)) {
             AddEdge(req->txn_id_, r->txn_id_);
           }
@@ -250,9 +250,9 @@ void LockManager::BuildGraph() {
   }
   for (const auto &p : row_lock_map_) {
     std::lock_guard<std::mutex> l(p.second->latch_);
-    for (const auto req : p.second->request_queue_) {
+    for (const auto &req : p.second->request_queue_) {
       if (!req->granted_) {
-        for (const auto r : p.second->request_queue_) {
+        for (const auto &r : p.second->request_queue_) {
           if (r->granted_ && !CheckCompatible(r->lock_mode_, req->lock_mode_)) {
             AddEdge(req->txn_id_, r->txn_id_);
           }
@@ -279,10 +279,9 @@ auto LockManager::TryLockTable(Transaction *txn, LockManager::LockMode lock_mode
     if (!RemoveTxnTableSet(txn, oid)) {
       BUSTUB_ASSERT(false, "upgrade fail!");
     }
-    delete old_req;
     lock_queue->upgrading_ = txn->GetTransactionId();
   }
-  auto new_req = new LockRequest(txn->GetTransactionId(), lock_mode, oid);
+  auto new_req = std::make_shared<LockRequest>(txn->GetTransactionId(), lock_mode, oid);
   lock_queue->request_queue_.push_back(new_req);
 
   while (txn->GetState() != TransactionState::ABORTED && !ApplyLock(txn, lock_queue, lock_mode)) {
@@ -294,7 +293,6 @@ auto LockManager::TryLockTable(Transaction *txn, LockManager::LockMode lock_mode
       lock_queue->upgrading_ = INVALID_TXN_ID;
     }
     lock_queue->request_queue_.remove(new_req);
-    delete new_req;
     lock_queue->cv_.notify_all();
     return false;
   }
@@ -365,10 +363,10 @@ auto LockManager::TableLockValidate(Transaction *txn, LockManager::LockMode lock
 }
 
 auto LockManager::CheckUpgrade(Transaction *txn, LockManager::LockMode lock_mode,
-                               const std::shared_ptr<LockRequestQueue> &lock_queue) -> LockRequest * {
+                               const std::shared_ptr<LockRequestQueue> &lock_queue) -> std::shared_ptr<LockRequest> {
   bool if_upgrade = false;
-  LockRequest *before_upgrade = nullptr;
-  for (auto req : lock_queue->request_queue_) {
+  std::shared_ptr<LockRequest> before_upgrade = nullptr;
+  for (const auto &req : lock_queue->request_queue_) {
     if (req->txn_id_ == txn->GetTransactionId()) {
       BUSTUB_ASSERT(req->granted_ == true, "must be granted");
       before_upgrade = req;
@@ -476,7 +474,7 @@ auto LockManager::RemoveTxnTableSet(Transaction *txn, const table_oid_t &oid) co
   return false;
 }
 
-void LockManager::TwoPCPhaseChange(Transaction *txn, LockManager::LockRequest *req) {
+void LockManager::TwoPCPhaseChange(Transaction *txn, const std::shared_ptr<LockRequest> &req) {
   if (txn->GetState() == TransactionState::COMMITTED || txn->GetState() == TransactionState::ABORTED) {
     return;
   }
@@ -553,10 +551,9 @@ auto LockManager::TryLockRow(Transaction *txn, LockManager::LockMode lock_mode, 
     if (!RemoveTxnRowSet(txn, rid, oid)) {
       BUSTUB_ASSERT(false, "upgrade fail");
     }
-    delete old_req;
     lock_queue->upgrading_ = txn->GetTransactionId();
   }
-  auto new_req = new LockRequest(txn->GetTransactionId(), lock_mode, oid, rid);
+  auto new_req = std::make_shared<LockRequest>(txn->GetTransactionId(), lock_mode, oid, rid);
   lock_queue->request_queue_.push_back(new_req);
   while (txn->GetState() != TransactionState::ABORTED && !ApplyLock(txn, lock_queue, lock_mode)) {
     lock_queue->cv_.wait(row_queue_lock);
@@ -564,7 +561,6 @@ auto LockManager::TryLockRow(Transaction *txn, LockManager::LockMode lock_mode, 
   if (txn->GetState() == TransactionState::ABORTED) {
     LOG_INFO("txn %d is Aborted", txn->GetTransactionId());
     lock_queue->request_queue_.remove(new_req);
-    delete new_req;
     if (upgraded) {
       lock_queue->upgrading_ = INVALID_TXN_ID;
     }

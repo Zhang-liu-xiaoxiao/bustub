@@ -63,7 +63,7 @@ class LockManager {
   class LockRequestQueue {
    public:
     /** List of lock requests for the same resource (table or row) */
-    std::list<LockRequest *> request_queue_;
+    std::list<std::shared_ptr<LockRequest>> request_queue_;
     /** For notifying blocked transactions on this rid */
     std::condition_variable cv_;
     /** txn_id of an upgrading transaction (if any) */
@@ -81,20 +81,20 @@ class LockManager {
   }
 
   ~LockManager() {
-//    std::vector<LockRequest *> to_delete;
-//    for (const auto &t_map : table_lock_map_) {
-//      for (auto req : t_map.second->request_queue_) {
-//        to_delete.push_back(req);
-//      }
-//    }
-//    for (const auto &r_map : row_lock_map_) {
-//      for (auto req : r_map.second->request_queue_) {
-//        to_delete.push_back(req);
-//      }
-//    }
-//    for (auto r : to_delete) {
-//      delete r;
-//    }
+    //    std::vector<LockRequest *> to_delete;
+    //    for (const auto &t_map : table_lock_map_) {
+    //      for (auto req : t_map.second->request_queue_) {
+    //        to_delete.push_back(req);
+    //      }
+    //    }
+    //    for (const auto &r_map : row_lock_map_) {
+    //      for (auto req : r_map.second->request_queue_) {
+    //        to_delete.push_back(req);
+    //      }
+    //    }
+    //    for (auto r : to_delete) {
+    //      delete r;
+    //    }
     enable_cycle_detection_ = false;
     cycle_detection_thread_->join();
     delete cycle_detection_thread_;
@@ -335,11 +335,11 @@ class LockManager {
   auto ApplyLock(Transaction *txn, const std::shared_ptr<LockRequestQueue> &lock_queue, LockMode lock_mode) -> bool;
   auto TableLockValidate(Transaction *txn, LockMode lock_mode) -> bool;
   auto CheckUpgrade(Transaction *txn, LockManager::LockMode lock_mode,
-                    const std::shared_ptr<LockRequestQueue> &lock_queue) -> LockRequest *;
+                    const std::shared_ptr<LockRequestQueue> &lock_queue) -> std::shared_ptr<LockRequest>;
   auto CheckCompatible(LockMode old_mode, LockMode new_mode) -> bool;
   void TableBookKeeping(Transaction *txn, LockManager::LockMode lock_mode, table_oid_t table_oid);
   auto RemoveTxnTableSet(Transaction *txn, const table_oid_t &oid) const -> bool;
-  void TwoPCPhaseChange(Transaction *txn, LockManager::LockRequest *req);
+  void TwoPCPhaseChange(Transaction *txn, const std::shared_ptr<LockRequest> &req);
   auto RowLockValidate(Transaction *txn, LockMode lock_mode) -> bool;
   auto TryLockRow(Transaction *txn, LockManager::LockMode lock_mode, const table_oid_t &oid, const RID &rid,
                   const std::shared_ptr<LockRequestQueue> &lock_queue) -> bool;
