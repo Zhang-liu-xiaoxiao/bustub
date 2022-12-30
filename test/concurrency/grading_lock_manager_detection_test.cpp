@@ -46,7 +46,12 @@ void BasicCycleTest() {
   LockManager lock_mgr{};
   cycle_detection_interval = std::chrono::seconds(5);
   TransactionManager txn_mgr{&lock_mgr};
-
+  auto *txn0 = txn_mgr.Begin();
+  auto *txn1 = txn_mgr.Begin();
+  auto *txn2 = txn_mgr.Begin();
+  EXPECT_EQ(0, txn0->GetTransactionId());
+  EXPECT_EQ(1, txn1->GetTransactionId());
+  EXPECT_EQ(2, txn2->GetTransactionId());
   /*** Create 0->1->0 cycle ***/
   lock_mgr.AddEdge(0, 1);
   lock_mgr.AddEdge(1, 0);
@@ -208,16 +213,21 @@ void BasicDeadlockDetectionTest() {
 
   std::thread t0([&] {
     // Lock and sleep
-    bool res = lock_mgr.LockExclusive(txn0, rid0);
+    //    bool res = lock_mgr.LockExclusive(txn0, rid0);
+    lock_mgr.LockTable(txn0, LockManager::LockMode::INTENTION_EXCLUSIVE, 0);
+
+    bool res = lock_mgr.LockRow(txn0, LockManager::LockMode::EXCLUSIVE, 0, rid0);
     EXPECT_EQ(true, res);
     EXPECT_EQ(TransactionState::GROWING, txn1->GetState());
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     // This will block
-    lock_mgr.LockExclusive(txn0, rid1);
-
-    lock_mgr.Unlock(txn0, rid0);
-    lock_mgr.Unlock(txn0, rid1);
+    //    lock_mgr.LockExclusive(txn0, rid1);
+    lock_mgr.LockRow(txn0, LockManager::LockMode::EXCLUSIVE, 0, rid1);
+    //    lock_mgr.Unlock(txn0, rid0);
+    lock_mgr.UnlockRow(txn0, 0, rid0);
+    //    lock_mgr.Unlock(txn0, rid1);
+    lock_mgr.UnlockRow(txn0, 0, rid1);
 
     txn_mgr.Commit(txn0);
     EXPECT_EQ(TransactionState::COMMITTED, txn0->GetState());
@@ -226,13 +236,17 @@ void BasicDeadlockDetectionTest() {
   std::thread t1([&] {
     // Sleep so T0 can take necessary locks
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    bool res = lock_mgr.LockExclusive(txn1, rid1);
+    //    bool res = lock_mgr.LockExclusive(txn1, rid1);
+    bool res = lock_mgr.LockTable(txn1, LockManager::LockMode::INTENTION_EXCLUSIVE, 0);
+    EXPECT_EQ(res, true);
+    res = lock_mgr.LockRow(txn1, LockManager::LockMode::EXCLUSIVE, 0, rid1);
     EXPECT_EQ(res, true);
     EXPECT_EQ(TransactionState::GROWING, txn1->GetState());
 
     // This will block
     try {
-      res = lock_mgr.LockExclusive(txn1, rid0);
+      //      res = lock_mgr.LockExclusive(txn1, rid0);
+      res = lock_mgr.LockRow(txn1, LockManager::LockMode::EXCLUSIVE, 0, rid0);
     } catch (TransactionAbortException &e) {
       EXPECT_EQ(TransactionState::ABORTED, txn1->GetState());
       txn_mgr.Abort(txn1);
@@ -274,17 +288,23 @@ void LargeDeadlockDetectionTest() {
     threads.emplace_back(std::thread([&, i] {
       // Sleep so previous threads can lock their things
       std::this_thread::sleep_for(std::chrono::milliseconds(i * num_threads));
-      EXPECT_EQ(true, lock_mgr.LockExclusive(txns[i], rids[i]));
+      //      EXPECT_EQ(true, lock_mgr.LockExclusive(txns[i], rids[i]));
+      lock_mgr.LockTable(txns[i], LockManager::LockMode::INTENTION_EXCLUSIVE, 0);
+
+      EXPECT_EQ(true, lock_mgr.LockRow(txns[i], LockManager::LockMode::EXCLUSIVE, 0, rids[i]));
       EXPECT_EQ(TransactionState::GROWING, txns[i]->GetState());
       std::this_thread::sleep_for(std::chrono::milliseconds((i + 2) * num_threads * 5));
 
       // This will block
       bool res;
       if (i < num_threads - 1) {
-        res = lock_mgr.LockExclusive(txns[i], rids[(i + 1) % num_threads]);
+        //        res = lock_mgr.LockExclusive(txns[i], rids[(i + 1) % num_threads]);
+        res = lock_mgr.LockRow(txns[i], LockManager::LockMode::EXCLUSIVE, 0, rids[(i + 1) % num_threads]);
         EXPECT_EQ(true, res);
-        lock_mgr.Unlock(txns[i], rids[i]);
-        lock_mgr.Unlock(txns[i], rids[(i + 1) % num_threads]);
+        //        lock_mgr.Unlock(txns[i], rids[i]);
+        lock_mgr.UnlockRow(txns[i], 0, rids[i]);
+        //        lock_mgr.Unlock(txns[i], rids[(i + 1) % num_threads]);
+        lock_mgr.UnlockRow(txns[i], 0, rids[(i + 1) % num_threads]);
         EXPECT_EQ(TransactionState::SHRINKING, txns[i]->GetState());
         txn_mgr.Commit(txns[i]);
         EXPECT_EQ(TransactionState::COMMITTED, txns[i]->GetState());
@@ -293,7 +313,8 @@ void LargeDeadlockDetectionTest() {
         assert(num_threads - 1 == i);
 
         try {
-          res = lock_mgr.LockExclusive(txns[i], rids[(i + 1) % num_threads]);
+          //          res = lock_mgr.LockExclusive(txns[i], rids[(i + 1) % num_threads]);
+          res = lock_mgr.LockRow(txns[i], LockManager::LockMode::EXCLUSIVE, 0, rids[(i + 1) % num_threads]);
         } catch (TransactionAbortException &e) {
           EXPECT_EQ(TransactionState::ABORTED, txns[i]->GetState());
           txn_mgr.Abort(txns[i]);
@@ -318,9 +339,9 @@ void LargeDeadlockDetectionTest() {
  * Description: Basic Cycle test
  */
 TEST(LockManagerDetectionTest, BasicCycleTest) {
-  TEST_TIMEOUT_BEGIN
+  //  TEST_TIMEOUT_BEGIN
   BasicCycleTest();
-  TEST_TIMEOUT_FAIL_END(1000 * 20)
+  //  TEST_TIMEOUT_FAIL_END(1000 * 20)
 }
 /*
  * Score 5

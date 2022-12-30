@@ -81,20 +81,20 @@ class LockManager {
   }
 
   ~LockManager() {
-    std::vector<LockRequest *> to_delete;
-    for (const auto &t_map : table_lock_map_) {
-      for (auto req : t_map.second->request_queue_) {
-        to_delete.push_back(req);
-      }
-    }
-    for (const auto &r_map : row_lock_map_) {
-      for (auto req : r_map.second->request_queue_) {
-        to_delete.push_back(req);
-      }
-    }
-    for (auto r : to_delete) {
-      delete r;
-    }
+//    std::vector<LockRequest *> to_delete;
+//    for (const auto &t_map : table_lock_map_) {
+//      for (auto req : t_map.second->request_queue_) {
+//        to_delete.push_back(req);
+//      }
+//    }
+//    for (const auto &r_map : row_lock_map_) {
+//      for (auto req : r_map.second->request_queue_) {
+//        to_delete.push_back(req);
+//      }
+//    }
+//    for (auto r : to_delete) {
+//      delete r;
+//    }
     enable_cycle_detection_ = false;
     cycle_detection_thread_->join();
     delete cycle_detection_thread_;
@@ -330,6 +330,8 @@ class LockManager {
   /** Waits-for graph representation. */
   std::unordered_map<txn_id_t, std::vector<txn_id_t>> waits_for_;
   std::mutex waits_for_latch_;
+
+  std::pair<txn_id_t, txn_id_t> to_remove_;
   auto ApplyLock(Transaction *txn, const std::shared_ptr<LockRequestQueue> &lock_queue, LockMode lock_mode) -> bool;
   auto TableLockValidate(Transaction *txn, LockMode lock_mode) -> bool;
   auto CheckUpgrade(Transaction *txn, LockManager::LockMode lock_mode,
@@ -344,6 +346,9 @@ class LockManager {
   auto CheckTableLockForRow(Transaction *txn, LockManager::LockMode lock_mode, const table_oid_t &oid) -> bool;
   auto RemoveTxnRowSet(Transaction *txn, const RID &rid, const table_oid_t &oid) -> bool;
   void RowBookKeeping(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid);
+  void BuildGraph();
+  auto DFS(txn_id_t txn, const std::vector<txn_id_t> &adj, std::unordered_set<txn_id_t> &visited,
+           std::vector<txn_id_t> &path, txn_id_t *circled_knot) -> bool;
 };
 
 }  // namespace bustub
