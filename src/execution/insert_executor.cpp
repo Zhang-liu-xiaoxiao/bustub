@@ -20,7 +20,19 @@ InsertExecutor::InsertExecutor(ExecutorContext *exec_ctx, const InsertPlanNode *
                                std::unique_ptr<AbstractExecutor> &&child_executor)
     : AbstractExecutor(exec_ctx), plan_(plan), values_executor_(std::move(child_executor)) {}
 
-void InsertExecutor::Init() { values_executor_->Init(); }
+void InsertExecutor::Init() {
+  values_executor_->Init();
+  try {
+    auto txn = exec_ctx_->GetTransaction();
+    auto res = exec_ctx_->GetLockManager()->LockTable(txn, LockManager::LockMode::EXCLUSIVE, plan_->table_oid_);
+    if (!res) {
+      throw ExecutionException("Cannot get X lock for table");
+    }
+  } catch (TransactionAbortException &e) {
+    LOG_INFO("%s", e.GetInfo().c_str());
+    throw ExecutionException("Cannot get X lock for table");
+  }
+}
 
 auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   if (finished_) {

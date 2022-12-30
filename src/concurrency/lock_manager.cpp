@@ -19,12 +19,12 @@
 namespace bustub {
 
 auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> bool {
-  LOG_INFO("txn :%d Try lock table :%d in mode:%d ,txn status:%d", txn->GetTransactionId(), oid,
-           static_cast<std::underlying_type<LockMode>::type>(lock_mode),
-           static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
+  LOG_DEBUG("txn :%d Try lock table :%d in mode:%d ,txn status:%d", txn->GetTransactionId(), oid,
+            static_cast<std::underlying_type<LockMode>::type>(lock_mode),
+            static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
   if (!TableLockValidate(txn, lock_mode)) {
-    LOG_INFO("txn :%d lock table :%d in mode:%d error", txn->GetTransactionId(), oid,
-             static_cast<std::underlying_type<LockMode>::type>(lock_mode));
+    LOG_DEBUG("txn :%d lock table :%d in mode:%d error", txn->GetTransactionId(), oid,
+              static_cast<std::underlying_type<LockMode>::type>(lock_mode));
     return false;
   }
   std::shared_ptr<LockRequestQueue> lock_queue;
@@ -41,8 +41,8 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
 }
 
 auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool {
-  LOG_INFO("txn :%d Try Unlock table :%d ,txn status:%d", txn->GetTransactionId(), oid,
-           static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
+  LOG_DEBUG("txn :%d Try Unlock table :%d ,txn status:%d", txn->GetTransactionId(), oid,
+            static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
 
   if (txn->GetSharedRowLockSet()->find(oid) != txn->GetSharedRowLockSet()->end() &&
       !txn->GetSharedRowLockSet()->find(oid)->second.empty()) {
@@ -81,15 +81,15 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
   if (!RemoveTxnTableSet(txn, oid)) {
     BUSTUB_ASSERT(false, "Cannot happen");
   }
-  LOG_INFO("unlock table notify all");
+  LOG_DEBUG("unlock table notify all");
   queue->cv_.notify_all();
   return true;
 }
 
 auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) -> bool {
-  LOG_INFO("txn :%d Try lock row :%s in table:%d,lock mode:%d ,txn status:%d", txn->GetTransactionId(),
-           rid.ToString().c_str(), oid, static_cast<std::underlying_type<LockMode>::type>(lock_mode),
-           static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
+  LOG_DEBUG("txn :%d Try lock row :%s in table:%d,lock mode:%d ,txn status:%d", txn->GetTransactionId(),
+            rid.ToString().c_str(), oid, static_cast<std::underlying_type<LockMode>::type>(lock_mode),
+            static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
   if (!RowLockValidate(txn, lock_mode)) {
     txn->SetState(TransactionState::ABORTED);
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::ATTEMPTED_INTENTION_LOCK_ON_ROW);
@@ -108,8 +108,8 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
 }
 
 auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID &rid) -> bool {
-  LOG_INFO("txn :%d Try Unlock Row :%s in table:%d ,txn status:%d", txn->GetTransactionId(), rid.ToString().c_str(),
-           oid, static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
+  LOG_DEBUG("txn :%d Try Unlock Row :%s in table:%d ,txn status:%d", txn->GetTransactionId(), rid.ToString().c_str(),
+            oid, static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
   std::shared_ptr<LockRequestQueue> queue;
   {
     std::lock_guard<std::mutex> lock(row_lock_map_latch_);
@@ -137,7 +137,7 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
   if (!RemoveTxnRowSet(txn, rid, oid)) {
     BUSTUB_ASSERT(false, "Cannot happen");
   }
-  LOG_INFO("unlock row notify all");
+  LOG_DEBUG("unlock row notify all");
   queue->cv_.notify_all();
   return true;
 }
@@ -195,7 +195,7 @@ void LockManager::RunCycleDetection() {
   while (enable_cycle_detection_) {
     std::this_thread::sleep_for(cycle_detection_interval);
     {  // TODO(students): detect deadlock
-      LOG_INFO("Cycle Detection");
+//      LOG_DEBUG("Cycle Detection");
       std::lock_guard<std::mutex> wait_for_lock(waits_for_latch_);
 
       std::lock_guard<std::mutex> table_lock(table_lock_map_latch_);
@@ -232,6 +232,7 @@ void LockManager::RunCycleDetection() {
       }
       waits_for_.clear();
       to_remove_ = {};
+//      LOG_DEBUG("Cycle Detection End");
     }
   }
 }
@@ -268,12 +269,12 @@ auto LockManager::TryLockTable(Transaction *txn, LockManager::LockMode lock_mode
   bool upgraded = false;
   if (old_req != nullptr) {
     if (old_req->lock_mode_ == lock_mode) {
-      LOG_INFO("txn :%d upgrade lock in same lock mode, just return", txn->GetTransactionId());
+      LOG_DEBUG("txn :%d upgrade lock in same lock mode, just return", txn->GetTransactionId());
       return true;
     }
-    LOG_INFO("txn :%d Upgrade lock table :%d to mode:%d ,txn status:%d", txn->GetTransactionId(), oid,
-             static_cast<std::underlying_type<LockMode>::type>(lock_mode),
-             static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
+    LOG_DEBUG("txn :%d Upgrade lock table :%d to mode:%d ,txn status:%d", txn->GetTransactionId(), oid,
+              static_cast<std::underlying_type<LockMode>::type>(lock_mode),
+              static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
     lock_queue->request_queue_.remove(old_req);
     upgraded = true;
     if (!RemoveTxnTableSet(txn, oid)) {
@@ -288,7 +289,7 @@ auto LockManager::TryLockTable(Transaction *txn, LockManager::LockMode lock_mode
     lock_queue->cv_.wait(lock);
   }
   if (txn->GetState() == TransactionState::ABORTED) {
-    LOG_INFO("txn %d is Aborted", txn->GetTransactionId());
+    LOG_DEBUG("txn %d is Aborted", txn->GetTransactionId());
     if (upgraded) {
       lock_queue->upgrading_ = INVALID_TXN_ID;
     }
@@ -298,9 +299,12 @@ auto LockManager::TryLockTable(Transaction *txn, LockManager::LockMode lock_mode
   }
   TableBookKeeping(txn, lock_mode, oid);
   new_req->granted_ = true;
-  LOG_INFO("txn :%d Success Get lock table :%d in mode:%d ,txn status:%d", txn->GetTransactionId(), oid,
-           static_cast<std::underlying_type<LockMode>::type>(lock_mode),
-           static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
+  if (upgraded) {
+    lock_queue->upgrading_ = INVALID_TXN_ID;
+  }
+  LOG_DEBUG("txn :%d Success Get lock table :%d in mode:%d ,txn status:%d", txn->GetTransactionId(), oid,
+            static_cast<std::underlying_type<LockMode>::type>(lock_mode),
+            static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
   return true;
 }
 
@@ -321,6 +325,7 @@ auto LockManager::ApplyLock(Transaction *txn, const std::shared_ptr<LockRequestQ
   if (lock_queue->upgrading_ != INVALID_TXN_ID) {
     return lock_queue->upgrading_ == txn->GetTransactionId();
   }
+  // FIFO
   for (const auto &req : lock_queue->request_queue_) {
     if (req->txn_id_ == txn->GetTransactionId()) {
       break;
@@ -376,6 +381,7 @@ auto LockManager::CheckUpgrade(Transaction *txn, LockManager::LockMode lock_mode
   }
   if (if_upgrade && lock_queue->upgrading_ != INVALID_TXN_ID) {
     txn->SetState(TransactionState::ABORTED);
+    LOG_DEBUG("concurrent upgrade");
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::UPGRADE_CONFLICT);
   }
   if (if_upgrade) {
@@ -540,12 +546,12 @@ auto LockManager::TryLockRow(Transaction *txn, LockManager::LockMode lock_mode, 
   auto old_req = CheckUpgrade(txn, lock_mode, lock_queue);
   if (old_req != nullptr) {
     if (old_req->lock_mode_ == lock_mode) {
-      LOG_INFO("txn :%d upgrade lock in same lock mode, just return", txn->GetTransactionId());
+      LOG_DEBUG("txn :%d upgrade lock in same lock mode, just return", txn->GetTransactionId());
       return true;
     }
-    LOG_INFO("txn :%d Upgrade lock table:%d, row :%s in mode:%d ,txn status:%d", txn->GetTransactionId(), oid,
-             rid.ToString().c_str(), static_cast<std::underlying_type<LockMode>::type>(lock_mode),
-             static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
+    LOG_DEBUG("txn :%d Upgrade lock table:%d, row :%s in mode:%d ,txn status:%d", txn->GetTransactionId(), oid,
+              rid.ToString().c_str(), static_cast<std::underlying_type<LockMode>::type>(lock_mode),
+              static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
     upgraded = true;
     lock_queue->request_queue_.remove(old_req);
     if (!RemoveTxnRowSet(txn, rid, oid)) {
@@ -559,7 +565,7 @@ auto LockManager::TryLockRow(Transaction *txn, LockManager::LockMode lock_mode, 
     lock_queue->cv_.wait(row_queue_lock);
   }
   if (txn->GetState() == TransactionState::ABORTED) {
-    LOG_INFO("txn %d is Aborted", txn->GetTransactionId());
+    LOG_DEBUG("txn %d is Aborted", txn->GetTransactionId());
     lock_queue->request_queue_.remove(new_req);
     if (upgraded) {
       lock_queue->upgrading_ = INVALID_TXN_ID;
@@ -567,11 +573,14 @@ auto LockManager::TryLockRow(Transaction *txn, LockManager::LockMode lock_mode, 
     lock_queue->cv_.notify_all();
     return false;
   }
+  if (upgraded) {
+    lock_queue->upgrading_ = INVALID_TXN_ID;
+  }
   RowBookKeeping(txn, lock_mode, oid, rid);
   new_req->granted_ = true;
-  LOG_INFO("txn :%d Success Get lock table:%d, row :%s in mode:%d ,txn status:%d", txn->GetTransactionId(), oid,
-           rid.ToString().c_str(), static_cast<std::underlying_type<LockMode>::type>(lock_mode),
-           static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
+  LOG_DEBUG("txn :%d Success Get lock table:%d, row :%s in mode:%d ,txn status:%d", txn->GetTransactionId(), oid,
+            rid.ToString().c_str(), static_cast<std::underlying_type<LockMode>::type>(lock_mode),
+            static_cast<std::underlying_type<TransactionState>::type>(txn->GetState()));
   return true;
 }
 auto LockManager::CheckTableLockForRow(Transaction *txn, LockManager::LockMode lock_mode, const table_oid_t &oid)

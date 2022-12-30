@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "buffer/buffer_pool_manager.h"
+#include "buffer/buffer_pool_manager_instance.h"
 #include "catalog/table_generator.h"
 #include "concurrency/transaction.h"
 #include "concurrency/transaction_manager.h"
@@ -20,7 +21,6 @@
 #include "execution/executors/aggregation_executor.h"
 #include "execution/executors/insert_executor.h"
 #include "execution/executors/nested_loop_join_executor.h"
-#include "execution/expressions/aggregate_value_expression.h"
 #include "execution/expressions/column_value_expression.h"
 #include "execution/expressions/comparison_expression.h"
 #include "execution/expressions/constant_value_expression.h"
@@ -30,7 +30,7 @@
 #include "execution/plans/seq_scan_plan.h"
 #include "execution/plans/update_plan.h"
 #include "gtest/gtest.h"
-#include "storage/b_plus_tree_test_util.h"  // NOLINT
+#include "test_util.h"
 #include "type/value_factory.h"
 
 #define TEST_TIMEOUT_BEGIN                           \
@@ -52,7 +52,7 @@ class GradingTransactionTest : public ::testing::Test {
     ::testing::Test::SetUp();
     // For each test, we create a new DiskManager, BufferPoolManager, TransactionManager, and Catalog.
     disk_manager_ = std::make_unique<DiskManager>("executor_test.db");
-    bpm_ = std::make_unique<BufferPoolManager>(2560, disk_manager_.get());
+    bpm_ = std::make_unique<BufferPoolManagerInstance>(2560, disk_manager_.get());
     page_id_t page_id;
     bpm_->NewPage(&page_id);
     lock_manager_ = std::make_unique<LockManager>();

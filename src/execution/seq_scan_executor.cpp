@@ -19,7 +19,16 @@ SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNod
       plan_(plan),
       iterator_(exec_ctx_->GetCatalog()->GetTable(plan_->table_oid_)->table_->Begin(exec_ctx_->GetTransaction())) {}
 
-void SeqScanExecutor::Init() {}
+void SeqScanExecutor::Init() {
+  auto txn = exec_ctx_->GetTransaction();
+  if (txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED ||
+      txn->GetIsolationLevel() == IsolationLevel::REPEATABLE_READ) {
+    auto res = exec_ctx_->GetLockManager()->LockTable(txn, LockManager::LockMode::SHARED, plan_->table_oid_);
+    if (!res) {
+      throw ExecutionException("Cannot get Shared lock for table");
+    }
+  }
+}
 
 auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   auto out_schema = plan_->OutputSchema();
@@ -36,6 +45,9 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     *rid = iterator_->GetRid();
     iterator_++;
     return true;
+  }
+  if (exec_ctx_->GetTransaction()->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) {
+    exec_ctx_->GetLockManager()->UnlockTable(exec_ctx_->GetTransaction(), plan_->table_oid_);
   }
   return false;
 }
