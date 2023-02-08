@@ -195,7 +195,7 @@ void LockManager::RunCycleDetection() {
   while (enable_cycle_detection_) {
     std::this_thread::sleep_for(cycle_detection_interval);
     {  // TODO(students): detect deadlock
-//      LOG_DEBUG("Cycle Detection");
+       //      LOG_DEBUG("Cycle Detection");
       std::lock_guard<std::mutex> wait_for_lock(waits_for_latch_);
 
       std::lock_guard<std::mutex> table_lock(table_lock_map_latch_);
@@ -232,7 +232,7 @@ void LockManager::RunCycleDetection() {
       }
       waits_for_.clear();
       to_remove_ = {};
-//      LOG_DEBUG("Cycle Detection End");
+      //      LOG_DEBUG("Cycle Detection End");
     }
   }
 }
